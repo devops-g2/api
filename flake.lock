@@ -108,17 +108,14 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1693355757,
-        "narHash": "sha256-sqxiHis7lqkRWTTvecK3ysgcuDTz8owq58+XaM+SM7s=",
-        "owner": "emanueljg",
-        "repo": "poetry-overrides",
-        "rev": "1cccb791994dd3e75efb9ad55d9ba153ce93aa0c",
-        "type": "github"
+        "lastModified": 1693666155,
+        "narHash": "sha256-/KtfU5pkHOAziFol0RZQffjFNvLrfNq9LTC5CRXEWTk=",
+        "path": "/home/ejg/poetry-overrides",
+        "type": "path"
       },
       "original": {
-        "owner": "emanueljg",
-        "repo": "poetry-overrides",
-        "type": "github"
+        "path": "/home/ejg/poetry-overrides",
+        "type": "path"
       }
     },
     "root": {

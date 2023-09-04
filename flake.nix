@@ -4,9 +4,9 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     poetry-overrides = {
-      url = "github:emanueljg/poetry-overrides";
+      # url = "github:emanueljg/poetry-overrides";
       # debug url
-      # url = "path:/home/ejg/poetry-overrides";
+      url = "path:/home/ejg/poetry-overrides";
     };
   };
 

@@ -1,4 +1,10 @@
+# project
+.database.py
+.db/
+forum.db
+.forum.db
 .direnv
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
