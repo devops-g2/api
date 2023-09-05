@@ -10,7 +10,7 @@ class Named(SQLModel):
 
 
 class Authored(SQLModel):
-    author: int = Field(foreign_key='user.id')
+    author: int = Field(foreign_key="user.id")
 
 
 class Index(SQLModel):
@@ -23,7 +23,9 @@ class Table(SQLModel):
 
 class DatedTable(Table):
     created_at: datetime = Field(default_factory=func.now)
-    updated_at: datetime = Field(default_factory=func.now, sa_column_kwargs={'onupdate': func.now()})
+    updated_at: datetime = Field(
+        default_factory=func.now, sa_column_kwargs={"onupdate": func.now()}
+    )
 
 
 # Implementations
@@ -35,6 +37,8 @@ class UserBase(Named):
 
 
 class UserCreate(UserBase):
+    email: str
+    password: str
     pass
 
 
@@ -47,7 +51,7 @@ class CategoryBase(Named):
     # threads: List['Thread'] = Relationship(back_populates='category')
 
 
-class CategoryCreate(CategoryBase): 
+class CategoryCreate(CategoryBase):
     pass
 
 
@@ -57,7 +61,7 @@ class Category(CategoryBase, Table, table=True):
 
 
 class ThreadBase(Named, Authored):
-    category_id: int = Field(foreign_key='category.id')
+    category_id: int = Field(foreign_key="category.id")
 
 
 class ThreadCreate(ThreadBase):
@@ -71,7 +75,7 @@ class Thread(ThreadBase, DatedTable, table=True):
 
 
 class PostBase(Authored):
-    thread_id: int = Field(foreign_key='thread.id')
+    thread_id: int = Field(foreign_key="thread.id")
     content: str
 
 
@@ -84,25 +88,24 @@ class Post(PostBase, DatedTable, table=True):
     # thread: Thread = Relationship(back_populates='thread')
 
 
-ModelInfo = namedtuple('ModelInfo', ('table', 'creator', 'prefix'))
+ModelInfo = namedtuple("ModelInfo", ("table", "creator", "prefix"))
 
 
 MODELS: dict[str, ModelInfo] = {
-    'user': ModelInfo(User, UserCreate, 'users'),
-    'category': ModelInfo(Category, CategoryCreate, 'categories'),
-    'thread': ModelInfo(Thread, ThreadCreate, 'threads'),
-    'post': ModelInfo(Post, PostCreate, 'posts'),
+    "user": ModelInfo(User, UserCreate, "users"),
+    "category": ModelInfo(Category, CategoryCreate, "categories"),
+    "thread": ModelInfo(Thread, ThreadCreate, "threads"),
+    "post": ModelInfo(Post, PostCreate, "posts"),
 }
 
 
-DB = Path('forum.db')
+DB = Path("forum.db")
 engine = create_engine(
-    f'sqlite:///{DB}',
-    echo=True,
-    connect_args={'check_same_thread': False}
+    f"sqlite:///{DB}", echo=True, connect_args={"check_same_thread": False}
 )
 
 SessionLocal = Session(engine)
+
 
 def get_db():
     session = Session(engine)
@@ -124,29 +127,41 @@ def _seed_table(model: ModelInfo, objs):
 
 
 def seed():
-    _seed_table(MODELS['user'], (
-        {'name': 'User 1', 'email': 'user1@example.com', 'password': 'user1'},
-        {'name': 'User 2', 'email': 'user2@example.com', 'password': 'user2'},
-        {'name': 'User 3', 'email': 'user3@example.com', 'password': 'user3'},
-    ))
-    _seed_table(MODELS['category'], (
-        {'name': 'Category 1'},
-        {'name': 'Category 2'},
-        {'name': 'Category 3'},
-    ))
-    _seed_table(MODELS['thread'], (
-        {'name': 'Thread 1', 'category_id': 1, 'author': 1},
-        {'name': 'Thread 2', 'category_id': 1, 'author': 2},
-        {'name': 'Thread 3', 'category_id': 2, 'author': 3},
-    ))
-    _seed_table(MODELS['post'], (
-        {'thread_id': 1, 'author': 1, 'content': 'Post 1 content'},
-        {'thread_id': 1, 'author': 2, 'content': 'Post 2 content'},
-        {'thread_id': 2, 'author': 3, 'content': 'Post 3 content'},
-        {'thread_id': 2, 'author': 1, 'content': 'Post 4 content'},
-        {'thread_id': 3, 'author': 2, 'content': 'Post 5 content'},
-        {'thread_id': 3, 'author': 3, 'content': 'Post 6 content'},
-    ))
+    _seed_table(
+        MODELS["user"],
+        (
+            {"name": "User 1", "email": "user1@example.com", "password": "user1"},
+            {"name": "User 2", "email": "user2@example.com", "password": "user2"},
+            {"name": "User 3", "email": "user3@example.com", "password": "user3"},
+        ),
+    )
+    _seed_table(
+        MODELS["category"],
+        (
+            {"name": "Category 1"},
+            {"name": "Category 2"},
+            {"name": "Category 3"},
+        ),
+    )
+    _seed_table(
+        MODELS["thread"],
+        (
+            {"name": "Thread 1", "category_id": 1, "author": 1},
+            {"name": "Thread 2", "category_id": 1, "author": 2},
+            {"name": "Thread 3", "category_id": 2, "author": 3},
+        ),
+    )
+    _seed_table(
+        MODELS["post"],
+        (
+            {"thread_id": 1, "author": 1, "content": "Post 1 content"},
+            {"thread_id": 1, "author": 2, "content": "Post 2 content"},
+            {"thread_id": 2, "author": 3, "content": "Post 3 content"},
+            {"thread_id": 2, "author": 1, "content": "Post 4 content"},
+            {"thread_id": 3, "author": 2, "content": "Post 5 content"},
+            {"thread_id": 3, "author": 3, "content": "Post 6 content"},
+        ),
+    )
 
 
 def create_all(*, wipe_old: bool = False, do_seed: bool = False):
@@ -155,4 +170,3 @@ def create_all(*, wipe_old: bool = False, do_seed: bool = False):
     SQLModel.metadata.create_all(bind=engine)
     if do_seed:
         seed()
-
