@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime  # noqa: TCH003
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Generator, Iterable
+from typing import Any, Generator, Iterable
 
 from sqlmodel import Field, Session, SQLModel, create_engine, func
-
-if TYPE_CHECKING:
-    from datetime import datetime
 
 
 class Named(SQLModel):
@@ -35,8 +33,6 @@ class DatedTable(Table):
 
 
 # Implementations
-
-
 class UserBase(Named):
     email: str
     password: str
