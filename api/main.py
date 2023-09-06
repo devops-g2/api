@@ -5,12 +5,15 @@ from typing import Annotated
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import PlainTextResponse
 from fastapi_crudrouter import SQLAlchemyCRUDRouter
+from prometheus_fastapi_instrumentator import Instrumentator
 from sqlmodel import Session, select
 
 from .models import MODELS, Category, Index, Post, Thread, create_all, get_db
 from .tldr import tldr_docs
 
 app = FastAPI()
+
+Instrumentator().instrument(app).expose(app, include_in_schema=True, should_gzip=True)
 
 
 # generate CRUD routes
