@@ -13,14 +13,13 @@ fastapi-crudrouter = "0.8.5"
 fastapi = "^0.103.0"
 taskipy = "^1.12.0"
 
-
 [tool.poetry.group.dev.dependencies]
 black = "^23.7.0"
 mypy = "^1.5.1"
 ruff = "^0.0.287"
 
 [tool.taskipy.tasks]
-run = "uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 4"
+start = "uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 4"
 
 lint = "ruff . --fix"
 lint_ro = "ruff . --no-fix"
@@ -32,7 +31,6 @@ typecheck = "mypy . --strict"
 
 check = "task format && task lint && task typecheck"
 check_ro = "task format_ro && task lint_ro && task typecheck"
-
 
 [[tool.mypy.overrides]]
 module = "fastapi_crudrouter"
