@@ -9,11 +9,42 @@ readme = "README.md"
 python = "^3.11"
 uvicorn = "^0.23.2"
 sqlmodel = "^0.0.8"
-fastapi-crudrouter = "^0.8.6"
+fastapi-crudrouter = "0.8.5"
 fastapi = "^0.103.0"
-fastapi-amis-admin = "^0.6.4"
+taskipy = "^1.12.0"
 
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.7.0"
+mypy = "^1.5.1"
+ruff = "^0.0.287"
+
+[tool.taskipy.tasks]
+run = "uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 4"
+
+lint = "ruff . --fix"
+lint_ro = "ruff . --no-fix"
+
+format = "black ."
+format_ro = "black . --check"
+
+typecheck = "mypy . --strict"
+
+check = "task format && task lint && task typecheck"
+check_ro = "task format_ro && task lint_ro && task typecheck"
+
+
+[[tool.mypy.overrides]]
+module = "fastapi_crudrouter"
+ignore_missing_imports = true
+
+[tool.ruff]
+select = [ "ALL" ]
+fix = true
+exclude = ['stubs']
+ignore = [ "D203", "D212", "S101", "EXE002", "D1", "B008" ]
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+

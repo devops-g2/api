@@ -1,23 +1,14 @@
+from __future__ import annotations
+
 from typing import Annotated
-from sqlmodel import select, Session
-from fastapi import FastAPI, Depends, HTTPException
+
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import PlainTextResponse
-import uvicorn
 from fastapi_crudrouter import SQLAlchemyCRUDRouter
+from sqlmodel import Session, select
 
-from .models import (
-    MODELS,
-    get_db,
-    create_all,
-
-    Index,
-    Category,
-    Thread,
-    Post
-)
-
+from .models import MODELS, Category, Index, Post, Thread, create_all, get_db
 from .tldr import tldr_docs
-
 
 app = FastAPI()
 
@@ -29,79 +20,78 @@ for model_info in MODELS.values():
         create_schema=model_info.creator,
         db_model=model_info.table,
         db=get_db,
-        prefix=model_info.prefix
+        prefix=model_info.prefix,
     )
     app.include_router(router)
 
 
-def pagination(skip: int = 0, limit: int | None = None):
-    return {'skip': skip, 'limit': limit}
+def pagination(skip: int = 0, limit: int | None = None) -> dict[str, int | None]:
+    return {"skip": skip, "limit": limit}
 
 
-Pagination = Annotated[dict, Depends(pagination)]
+Pagination = Annotated[dict[str, int | None], Depends(pagination)]
 
 
 class ElemNotFoundException(HTTPException):
-    def __init__(self, elem, n):
+    def __init__(self: ElemNotFoundException, elem: str, n: int) -> None:
         self.elem = elem
         self.n = n
 
-    def __str__(self):
-        return f'{self.elem} #{self.n} not found'
+    def __str__(self: ElemNotFoundException) -> str:
+        return f"{self.elem} #{self.n} not found"
 
 
-@app.on_event('startup')
-def on_startup():
+@app.on_event("startup")
+def on_startup() -> None:
     create_all(wipe_old=True, do_seed=True)
 
 
 @app.get(
-    '/categories/{item_id}/threads',
+    "/categories/{item_id}/threads",
     response_model=list[Index],
-    tags=['Categories']
+    tags=["Categories"],
 )
 def get_category_thread_ids(
     *,
     session: Session = Depends(get_db),
     pagination: Pagination,
-    item_id: int
-):
-    if (session.get(Category, item_id)):
-        return session.exec(
-            select(Thread)
-            .where(Thread.category_id == item_id)
-            .offset(pagination['skip'])
-            .limit(pagination['limit'])
-        ).all()
-    else:
-        raise ElemNotFoundException('Category', item_id)
+    item_id: int,
+) -> list[int]:
+    if not session.get(Category, item_id):
+        msg = "Category"
+        raise ElemNotFoundException(msg, item_id)
+
+    return session.exec(
+        select(Thread.id or 0)
+        .where(Thread.category_id == item_id)
+        .offset(pagination["skip"])
+        .limit(pagination["limit"]),
+    ).all()
 
 
-@app.get(
-    '/threads/{item_id}/posts',
-    response_model=list[Index],
-    tags=['Threads']
-)
+@app.get("/threads/{item_id}/posts", response_model=list[Index], tags=["Threads"])
 def get_thread_post_ids(
     *,
     session: Session = Depends(get_db),
     pagination: Pagination,
-    item_id: int
-):
-    if (session.get(Thread, item_id)):
-        return session.exec(
-            select(Post)
-            .where(Post.thread_id == item_id)
-            .offset(pagination['skip'])
-            .limit(pagination['limit'])
-        ).all()
-    else:
-        raise ElemNotFoundException('Thread', item_id)
+    item_id: int,
+) -> list[int]:
+    if not session.get(Thread, item_id):
+        msg = "Thread"
+        raise ElemNotFoundException(msg, item_id)
+
+    return session.exec(
+        select(Post.id or 0)
+        .where(Post.thread_id == item_id)
+        .offset(pagination["skip"])
+        .limit(pagination["limit"]),
+    ).all()
 
 
-@app.get('/tldr', response_class=PlainTextResponse)
-async def get_tldr_docs():
+@app.get("/tldr", response_class=PlainTextResponse)
+async def get_tldr_docs() -> str:
     return tldr_docs
 
-if __name__ == '__main__':
-    uvicorn.run(app, host='0.0.0.0', port=8000)
+
+if __name__ == "__main__":
+    pass

@@ -60,4 +60,3 @@ DELETE /<items>
 DELETE /<items>/<item_id>
     Delete an item.
 """.lstrip()
-
