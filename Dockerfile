@@ -13,7 +13,4 @@ RUN poetry install --no-dev
 
 # Start the server
 CMD ["poetry", "run", "task", "start"]
-# # CMD [ "poetry", "shell" ]
-# # CMD [ "task", "start" ]
-# CMD [ "poetry", "run", "uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 4" ]
 
