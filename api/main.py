@@ -1,17 +1,14 @@
 from __future__ import annotations
 
+import textwrap
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import PlainTextResponse
 from fastapi_crudrouter import SQLAlchemyCRUDRouter
 from sqlmodel import Session, select
-import textwrap
-
-# from .models import *
 
 from .models import MODELS, Category, Index, Post, Thread, create_all, get_db
-# from .tldr import tldr_docs
 
 app = FastAPI()
 
@@ -91,7 +88,8 @@ def get_thread_post_ids(
     ).all()
 
 
-endpoint_str = textwrap.dedent('''
+endpoint_str = textwrap.dedent(
+    """
 
     Endpoints: Special
     ------------------
@@ -123,46 +121,39 @@ endpoint_str = textwrap.dedent('''
 
     DELETE /<items>/<item_id>
         Delete an item.
-''').lstrip()
-
-print(dir(app))
-print(app.openapi_tags)
+""",
+).lstrip()
 
 
 @app.get("/tldr", response_class=PlainTextResponse)
 async def get_tldr_docs() -> str:
     return str(dir(app))
-    # return str(app.openapi())
-    lines_mixed_types = [
-        'Objects',
-        '-------',
-        ''
-    ]
-    for model_name, model in MODELS.items():
+    lines_mixed_types = ["Objects", "-------", ""]
+    for model in MODELS.values():
         schema = model.table.schema()
         lines_mixed_types.append(f'{schema["title"]}:  (/{model.prefix})')
-        for property_name, property in schema['properties'].items():
-            lines_mixed_types.append({
-                'string': f'{" " * 4}{property_name}: {property["type"]}',
-                'is_readonly': property_name not in model.creator.schema()['properties']
-            })
-        lines_mixed_types.append('\n')
+        for property_name, property in schema["properties"].items():  # noqa: A001
+            lines_mixed_types.append(
+                {
+                    "string": f'{" " * 4}{property_name}: {property["type"]}',
+                    "is_readonly": property_name
+                    not in model.creator.schema()["properties"],
+                },
+            )
+        lines_mixed_types.append("\n")
 
     lines = []
 
     for line in lines_mixed_types:
-        if not isinstance(line, dict): 
+        if not isinstance(line, dict):
             lines.append(line)
-        elif not line['is_readonly']:   # 
-            lines.append(line['string'])
+        elif not line["is_readonly"]:  #
+            lines.append(line["string"])
         else:
             readonly_tag_index = len(max(lines_mixed_types, key=len)) + 2
             lines.append(f'{line["string"]: <{readonly_tag_index}}(read-only)')
 
-    return '\n'.join(lines) + '\n' + endpoint_str
-
-
-    # return tldr_docs
+    return "\n".join(lines) + "\n" + endpoint_str
 
 
 if __name__ == "__main__":
