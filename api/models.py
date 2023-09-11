@@ -16,6 +16,10 @@ class Authored(SQLModel):
     author: int = Field(foreign_key="user.id")
 
 
+class Content(SQLModel):
+    content: str
+
+
 class Index(SQLModel):
     id: int  # noqa: A003
 
@@ -46,33 +50,20 @@ class User(UserBase, DatedTable, table=True):
     pass
 
 
-class CategoryBase(Named):
+class TagBase(Named):
     pass
 
 
-class CategoryCreate(CategoryBase):
+class TagCreate(TagBase):
     pass
 
 
-class Category(CategoryBase, Table, table=True):
+class Tag(TagBase, Table, table=True):
     pass
 
 
-class ThreadBase(Named, Authored):
-    category_id: int = Field(foreign_key="category.id")
-
-
-class ThreadCreate(ThreadBase):
+class PostBase(Named, Authored, Content):
     pass
-
-
-class Thread(ThreadBase, DatedTable, table=True):
-    pass
-
-
-class PostBase(Authored):
-    thread_id: int = Field(foreign_key="thread.id")
-    content: str
 
 
 class PostCreate(PostBase):
@@ -80,6 +71,31 @@ class PostCreate(PostBase):
 
 
 class Post(PostBase, DatedTable, table=True):
+    pass
+
+
+class TaggedPostBase(SQLModel):
+    tag_id: int = Field(foreign_key='tag.id')
+    post_id: int = Field(foreign_key='post.id')
+
+
+class TaggedPostCreate(TaggedPostBase):
+    pass
+
+
+class TaggedPost(TaggedPostBase, Table, table=True):
+    pass
+
+
+class CommentBase(Authored, Content):
+    post_id: int = Field(foreign_key='post.id')
+
+
+class CommentCreate(CommentBase):
+    pass
+
+
+class Comment(CommentBase, DatedTable, table=True):
     pass
 
 
@@ -92,9 +108,10 @@ class ModelInfo:
 
 MODELS: dict[str, ModelInfo] = {
     "user": ModelInfo(User, UserCreate, "users"),
-    "category": ModelInfo(Category, CategoryCreate, "categories"),
-    "thread": ModelInfo(Thread, ThreadCreate, "threads"),
+    "tag": ModelInfo(Tag, TagCreate, "tags"),
     "post": ModelInfo(Post, PostCreate, "posts"),
+    "tagged posts": ModelInfo(TaggedPost, TaggedPostCreate, "tagged_posts"),
+    "comment": ModelInfo(Comment, CommentCreate, "comments"),
 }
 
 

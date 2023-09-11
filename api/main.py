@@ -8,21 +8,22 @@ from fastapi.responses import PlainTextResponse
 from fastapi_crudrouter import SQLAlchemyCRUDRouter
 from sqlmodel import Session, select
 
-from .models import MODELS, Category, Index, Post, Thread, create_all, get_db
+
+from .models import MODELS, User, UserCreate, Tag, TagCreate, Post, PostCreate, Comment, CommentCreate, Index, create_all, get_db
 
 app = FastAPI()
 
 
-# generate CRUD routes
-for model_info in MODELS.values():
-    router = SQLAlchemyCRUDRouter(
-        schema=model_info.table,
-        create_schema=model_info.creator,
-        db_model=model_info.table,
-        db=get_db,
-        prefix=model_info.prefix,
-    )
-    app.include_router(router)
+# # generate CRUD routes
+# for model_info in MODELS.values():
+#     router = SQLAlchemyCRUDRouter(
+#         schema=model_info.table,
+#         create_schema=model_info.creator,
+#         db_model=model_info.table,
+#         db=get_db,
+#         prefix=model_info.prefix,
+#     )
+#     app.include_router(router)
 
 
 def pagination(skip: int = 0, limit: int | None = None) -> dict[str, int | None]:
@@ -43,49 +44,105 @@ class ElemNotFoundException(HTTPException):
 
 @app.on_event("startup")
 def on_startup() -> None:
-    create_all(wipe_old=True, do_seed=True)
+    create_all(wipe_old=True, do_seed=False)
 
 
-@app.get(
-    "/categories/{item_id}/threads",
-    response_model=list[Index],
-    tags=["Categories"],
-)
-def get_category_thread_ids(
+@app.get('/users/', response_model=list[User], tags=['Users'])
+def get_users(
     *,
     session: Session = Depends(get_db),
-    pagination: Pagination,
-    item_id: int,
-) -> list[int]:
-    if not session.get(Category, item_id):
-        msg = "Category"
-        raise ElemNotFoundException(msg, item_id)
-
+    pagination: Pagination
+) -> list[User]:
     return session.exec(
-        select(Thread.id or 0)
-        .where(Thread.category_id == item_id)
-        .offset(pagination["skip"])
-        .limit(pagination["limit"]),
+        select(User)
+        .offset(pagination.offset)
+        .limit(pagination.limit)
     ).all()
 
 
-@app.get("/threads/{item_id}/posts", response_model=list[Index], tags=["Threads"])
-def get_thread_post_ids(
+@app.get('/users/{user_id}', response_model=User, tags=['Users'])
+def get_user(
     *,
     session: Session = Depends(get_db),
-    pagination: Pagination,
-    item_id: int,
-) -> list[int]:
-    if not session.get(Thread, item_id):
-        msg = "Thread"
-        raise ElemNotFoundException(msg, item_id)
+    user_id: int
+) -> User:
+    if not (user := session.get(User, user_id)):
+        raise ElemNotFoundException('User', user_id)
+    return user
 
-    return session.exec(
-        select(Post.id or 0)
-        .where(Post.thread_id == item_id)
-        .offset(pagination["skip"])
-        .limit(pagination["limit"]),
-    ).all()
+
+@app.patch('/users/{user_id}', response_model=User, tags=['Users'])
+def update_user(
+    *,
+    session: Session = Depends(get_db),
+    user_id: int,
+    user: UserCreate
+) -> User:
+    if not (user_db := session.get(User, user_id)):
+        raise ElemNotFoundException('User', user_id)
+    user_data = user.dict(exclude_unset=True)
+    for k, v in user_data.items():
+        setattr(user_db, k, v)
+    session.add(user_db)
+    session.commit()
+    session.refresh(user_db)
+    return user_db
+
+
+@app.delete('/users/{user_id}', tags=['Users'])
+def delete_user(
+    *,
+    session: Session = Depends(get_db),
+    user_id: int
+) -> Index:
+    if not (user := session.get(User, user_id)):
+        raise ElemNotFoundException('User', user_id)
+    session.delete(user)
+    session.commit()
+    return {'ok': True}
+
+
+
+# @app.get(
+#     "/tags/{item_id}/posts",
+#     response_model=list[Index],
+#     tags=["Tags"],
+# )
+# def get_posts_with_tag(
+#     *,
+#     session: Session = Depends(get_db),
+#     pagination: Pagination,
+#     item_id: int,
+# ) -> list[int]:
+#     if not session.get(Tag, item_id):
+#         msg = "Category"
+#         raise ElemNotFoundException(msg, item_id)
+
+#     return session.exec(
+#         select(Thread.id or 0)
+#         .where(Thread.category_id == item_id)
+#         .offset(pagination["skip"])
+#         .limit(pagination["limit"]),
+#     ).all()
+
+
+# @app.get("/threads/{item_id}/posts", response_model=list[Index], tags=["Threads"])
+# def get_thread_post_ids(
+#     *,
+#     session: Session = Depends(get_db),
+#     pagination: Pagination,
+#     item_id: int,
+# ) -> list[int]:
+#     if not session.get(Thread, item_id):
+#         msg = "Thread"
+#         raise ElemNotFoundException(msg, item_id)
+
+#     return session.exec(
+#         select(Post.id or 0)
+#         .where(Post.thread_id == item_id)
+#         .offset(pagination["skip"])
+#         .limit(pagination["limit"]),
+#     ).all()
 
 
 endpoint_str = textwrap.dedent(
@@ -127,7 +184,7 @@ endpoint_str = textwrap.dedent(
 
 @app.get("/tldr", response_class=PlainTextResponse)
 async def get_tldr_docs() -> str:
-    return str(dir(app))
+    # return str(dir(app))
     lines_mixed_types = ["Objects", "-------", ""]
     for model in MODELS.values():
         schema = model.table.schema()
