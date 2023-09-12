@@ -15,15 +15,16 @@ app = FastAPI()
 
 
 # # generate CRUD routes
-# for model_info in MODELS.values():
-#     router = SQLAlchemyCRUDRouter(
-#         schema=model_info.table,
-#         create_schema=model_info.creator,
-#         db_model=model_info.table,
-#         db=get_db,
-#         prefix=model_info.prefix,
-#     )
-#     app.include_router(router)
+for model_info in MODELS.values():
+    router = SQLAlchemyCRUDRouter(
+        schema=model_info.table,
+        create_schema=model_info.creator,
+        db_model=model_info.table,
+        db=get_db,
+        prefix=model_info.prefix,
+        tags=model_info.tags
+    )
+    app.include_router(router)
 
 
 def pagination(skip: int = 0, limit: int | None = None) -> dict[str, int | None]:
@@ -47,64 +48,117 @@ def on_startup() -> None:
     create_all(wipe_old=True, do_seed=False)
 
 
-@app.get('/users/', response_model=list[User], tags=['Users'])
-def get_users(
-    *,
-    session: Session = Depends(get_db),
-    pagination: Pagination
-) -> list[User]:
-    return session.exec(
-        select(User)
-        .offset(pagination.offset)
-        .limit(pagination.limit)
-    ).all()
+# @app.get('/users/', response_model=list[User], tags=['Users'])
+# def get_users(
+#     *,
+#     session: Session = Depends(get_db),
+#     pagination: Pagination
+# ) -> list[User]:
+#     return session.exec(
+#         select(User)
+#         .offset(pagination.offset)
+#         .limit(pagination.limit)
+#     ).all()
 
 
-@app.get('/users/{user_id}', response_model=User, tags=['Users'])
-def get_user(
-    *,
-    session: Session = Depends(get_db),
-    user_id: int
-) -> User:
-    if not (user := session.get(User, user_id)):
-        raise ElemNotFoundException('User', user_id)
-    return user
+# @app.get('/users/{user_id}', response_model=User, tags=['Users'])
+# def get_user(
+#     *,
+#     session: Session = Depends(get_db),
+#     user_id: int
+# ) -> User:
+#     if not (user := session.get(User, user_id)):
+#         raise ElemNotFoundException('User', user_id)
+#     return user
 
 
-@app.patch('/users/{user_id}', response_model=User, tags=['Users'])
-def update_user(
-    *,
-    session: Session = Depends(get_db),
-    user_id: int,
-    user: UserCreate
-) -> User:
-    if not (user_db := session.get(User, user_id)):
-        raise ElemNotFoundException('User', user_id)
-    user_data = user.dict(exclude_unset=True)
-    for k, v in user_data.items():
-        setattr(user_db, k, v)
-    session.add(user_db)
-    session.commit()
-    session.refresh(user_db)
-    return user_db
+# @app.patch('/users/{user_id}', response_model=User, tags=['Users'])
+# def update_user(
+#     *,
+#     session: Session = Depends(get_db),
+#     user_id: int,
+#     user: UserCreate
+# ) -> User:
+#     if not (user_db := session.get(User, user_id)):
+#         raise ElemNotFoundException('User', user_id)
+#     user_data = user.dict(exclude_unset=True)
+#     for k, v in user_data.items():
+#         setattr(user_db, k, v)
+#     session.add(user_db)
+#     session.commit()
+#     session.refresh(user_db)
+#     return user_db
 
 
-@app.delete('/users/{user_id}', tags=['Users'])
-def delete_user(
-    *,
-    session: Session = Depends(get_db),
-    user_id: int
-) -> Index:
-    if not (user := session.get(User, user_id)):
-        raise ElemNotFoundException('User', user_id)
-    session.delete(user)
-    session.commit()
-    return {'ok': True}
+# @app.delete('/users/{user_id}', tags=['Users'])
+# def delete_user(
+#     *,
+#     session: Session = Depends(get_db),
+#     user_id: int
+# ) -> Index:
+#     if not (user := session.get(User, user_id)):
+#         raise ElemNotFoundException('User', user_id)
+#     session.delete(user)
+#     session.commit()
+#     return {'ok': True}
 
 
+# @app.get('/tags/', response_model=list[Tag], tags=['Tags'])
+# def get_tags(
+#     *,
+#     session: Session = Depends(get_db),
+#     pagination: Pagination
+# ) -> list[Tag]:
+#     return session.exec(
+#         select(Tag)
+#         .offset(pagination.offset)
+#         .limit(pagination.limit)
+#     ).all()
 
-# @app.get(
-#     "/tags/{item_id}/posts",
+
+# @app.get('/users/{user_id}', response_model=User, tags=['Users'])
+# def get_user(
+#     *,
+#     session: Session = Depends(get_db),
+#     user_id: int
+# ) -> User:
+#     if not (user := session.get(User, user_id)):
+#         raise ElemNotFoundException('User', user_id)
+#     return user
+
+
+# @app.patch('/users/{user_id}', response_model=User, tags=['Users'])
+# def update_user(
+#     *,
+#     session: Session = Depends(get_db),
+#     user_id: int,
+#     user: UserCreate
+# ) -> User:
+#     if not (user_db := session.get(User, user_id)):
+#         raise ElemNotFoundException('User', user_id)
+#     user_data = user.dict(exclude_unset=True)
+#     for k, v in user_data.items():
+#         setattr(user_db, k, v)
+#     session.add(user_db)
+#     session.commit()
+#     session.refresh(user_db)
+#     return user_db
+
+
+# @app.delete('/users/{user_id}', tags=['Users'])
+# def delete_user(
+#     *,
+#     session: Session = Depends(get_db),
+#     user_id: int
+# ) -> Index:
+#     if not (user := session.get(User, user_id)):
+#         raise ElemNotFoundException('User', user_id)
+#     session.delete(user)
+#     session.commit()
+#     return {'ok': True}
+
+# # @app.get(
+# #     "/tags/{item_id}/posts",
 #     response_model=list[Index],
 #     tags=["Tags"],
 # )

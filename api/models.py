@@ -105,12 +105,16 @@ class ModelInfo:
     creator: type[SQLModel]
     prefix: str
 
+    @property
+    def tags(self):
+        return [self.prefix.replace('_', ' ').capitalize()]
+
 
 MODELS: dict[str, ModelInfo] = {
     "user": ModelInfo(User, UserCreate, "users"),
     "tag": ModelInfo(Tag, TagCreate, "tags"),
     "post": ModelInfo(Post, PostCreate, "posts"),
-    "tagged posts": ModelInfo(TaggedPost, TaggedPostCreate, "tagged_posts"),
+    "tagged_post": ModelInfo(TaggedPost, TaggedPostCreate, "tagged_posts"),
     "comment": ModelInfo(Comment, CommentCreate, "comments"),
 }
 
