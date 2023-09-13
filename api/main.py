@@ -1,66 +1,57 @@
 from __future__ import annotations
 
 import textwrap
-from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import FastAPI, Depends
 from fastapi.responses import PlainTextResponse
 from fastapi_crudrouter import SQLAlchemyCRUDRouter
 from sqlmodel import Session, select
 
 
 # from .models import MODELS, User, UserCreate, Tag, TagCreate, Post, PostCreate, Comment, CommentCreate, Index, create_all, get_db
-from .models import UserModel, TagModel, PostModel, TaggedPostModel, 
+from .models import User, Tag, Post, TaggedPost, Comment, create_all, get_db, Endpointed
 
 app = FastAPI()
 
+User.include_endpoints(app)
+Tag.include_endpoints(app)
+Post.include_endpoints(app)
+TaggedPost.include_endpoints(app)
+Comment.include_endpoints(app)
 
-# # generate CRUD routes
-for model_info in MODELS.values():
-    router = SQLAlchemyCRUDRouter(
-        schema=model_info.table,
-        create_schema=model_info.creator,
-        update_schema=model_info.creator,
-        db_model=model_info.table,
-        db=get_db,
-        prefix=model_info.prefix,
-        tags=model_info.tags
-    )
-    app.include_router(router)
+app.include_router(Endpointed.ROUTER)
 
 
-def pagination(skip: int = 0, limit: int | None = None) -> dict[str, int | None]:
-    return {"skip": skip, "limit": limit}
-
-
-Pagination = Annotated[dict[str, int | None], Depends(pagination)]
-
-
-class ElemNotFoundException(HTTPException):
-    def __init__(self: ElemNotFoundException, elem: str, n: int) -> None:
-        self.elem = elem
-        self.n = n
-
-    def __str__(self: ElemNotFoundException) -> str:
-        return f"{self.elem} #{self.n} not found"
+# # # generate CRUD routes
+# for model_info in MODELS.values():
+# router = SQLAlchemyCRUDRouter(
+#     schema=User.Table,
+#     create_schema=User.Creator,
+#     update_schema=User.Creator,
+#     db_model=User.Table,
+#     db=get_db,
+#     prefix=User.PREFIX,
+#     tags=User.get_tags()
+# )
+# app.include_router(router)
 
 
 @app.on_event("startup")
 def on_startup() -> None:
-    create_all(wipe_old=True, do_seed=False)
+    create_all(wipe_old=True, do_seed=True)
 
 
-@app.get('/users/', tags=['Users'])
-def blegh(
-    *,
-    session: Session = Depends(get_db),
-    pagination: Pagination
-) -> list[User]:
-    return session.exec(
-        select(User)
-        .offset(pagination.offset)
-        .limit(pagination.limit)
-    ).all()
+# @app.get('/users/', tags=['Users'])
+# def blegh(
+#     *,
+#     session: Session = Depends(get_db),
+#     pagination: Pagination
+# ) -> list[User]:
+#     return session.exec(
+#         select(User)
+#         .offset(pagination.offset)
+#         .limit(pagination.limit)
+#     ).all()
 
 
 # @app.get('/users/{user_id}', response_model=User, tags=['Users'])
