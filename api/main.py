@@ -9,7 +9,8 @@ from fastapi_crudrouter import SQLAlchemyCRUDRouter
 from sqlmodel import Session, select
 
 
-from .models import MODELS, User, UserCreate, Tag, TagCreate, Post, PostCreate, Comment, CommentCreate, Index, create_all, get_db
+# from .models import MODELS, User, UserCreate, Tag, TagCreate, Post, PostCreate, Comment, CommentCreate, Index, create_all, get_db
+from .models import UserModel, TagModel, PostModel, TaggedPostModel, 
 
 app = FastAPI()
 
@@ -19,6 +20,7 @@ for model_info in MODELS.values():
     router = SQLAlchemyCRUDRouter(
         schema=model_info.table,
         create_schema=model_info.creator,
+        update_schema=model_info.creator,
         db_model=model_info.table,
         db=get_db,
         prefix=model_info.prefix,
@@ -48,17 +50,17 @@ def on_startup() -> None:
     create_all(wipe_old=True, do_seed=False)
 
 
-# @app.get('/users/', response_model=list[User], tags=['Users'])
-# def get_users(
-#     *,
-#     session: Session = Depends(get_db),
-#     pagination: Pagination
-# ) -> list[User]:
-#     return session.exec(
-#         select(User)
-#         .offset(pagination.offset)
-#         .limit(pagination.limit)
-#     ).all()
+@app.get('/users/', tags=['Users'])
+def blegh(
+    *,
+    session: Session = Depends(get_db),
+    pagination: Pagination
+) -> list[User]:
+    return session.exec(
+        select(User)
+        .offset(pagination.offset)
+        .limit(pagination.limit)
+    ).all()
 
 
 # @app.get('/users/{user_id}', response_model=User, tags=['Users'])

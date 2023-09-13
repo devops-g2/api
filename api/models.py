@@ -8,115 +8,123 @@ from typing import Any, Generator, Iterable
 from sqlmodel import Field, Session, SQLModel, create_engine, func
 
 
-class Named(SQLModel):
-    name: str
+ID_FIELD = Field(primary_key=True, index=True, default=None)  # noqa: A003
 
+USER_ID_FIELD = Field(foreign_key='user.id')
+TAG_ID_FIELD = Field(foreign_key='tag.id')
+POST_ID_FIELD = Field(foreign_key='post.id')
 
-class Authored(SQLModel):
-    author: int = Field(foreign_key="user.id")
+CREATED_AT_FIELD = Field(default_factory=func.now)
 
-
-class Content(SQLModel):
-    content: str
+UPDATED_AT_FIELD = Field(
+    default_factory=func.now,
+    sa_column_kwargs={"onupdate": func.now()},
+)
 
 
 class Index(SQLModel):
     id: int  # noqa: A003
 
 
-class Table(SQLModel):
-    id: int | None = Field(primary_key=True, index=True, default=None)  # noqa: A003
+class Endpointed:
+    @classmethod
+    def get_all(cls):
+        print(cls.Creator)
 
 
-class DatedTable(Table):
-    created_at: datetime = Field(default_factory=func.now)
-    updated_at: datetime = Field(
-        default_factory=func.now,
-        sa_column_kwargs={"onupdate": func.now()},
-    )
+class User:
+    class Table(SQLModel, table=True):
+        __tablename__ = 'User'
+
+        id: int = ID_FIELD
+        name: str
+        email: str
+        password: str
+
+    class Creator:
+        name: str
+        email: str
+        password: str
+
+    class Updater:
+        name: str | None = None
+        email: str | None = None
+        password: str | None = None
 
 
-# Implementations
-class UserBase(Named):
-    email: str
-    password: str
+class Tag:
+    class Table(SQLModel, table=True):
+        __tablename__ = 'tag'
+
+        id: int = ID_FIELD
+        name: str
+
+    class Creator:
+        name: str
+
+    class Updater:
+        name: str | None = None
 
 
-class UserCreate(UserBase):
-    pass
+class Post:
+    class Table(SQLModel, table=True):
+        __tablename__ = 'post'
+
+        id: int = ID_FIELD
+        name: str
+        content: str
+        author: int = USER_ID_FIELD
+        created_at: datetime = CREATED_AT_FIELD
+        updated_at: datetime = UPDATED_AT_FIELD
+
+    class Creator:
+        name: str
+        content: str
+        author: int
+
+    class Updater:
+        name: str | None = None
+        content: str | None = None
+        author: int | None = None
 
 
-class User(UserBase, DatedTable, table=True):
-    pass
+class TaggedPost:
+    class Table(SQLModel, table=True):
+        __tablename__ = 'tagged_post'
+        
+        id: int = ID_FIELD
+        tag_id: int = TAG_ID_FIELD
+        post_id: int = POST_ID_FIELD
+
+    class Creator:
+        tag_id: int
+        post_id: int
+
+    class Updater:
+        tag_id: int | None = None
+        post_id: int | None = None
 
 
-class TagBase(Named):
-    pass
+class CommentModel(Endpointed):
+    class Table(SQLModel, table=True):
+        __tablename__ = 'comment'
+        
+        id: int = ID_FIELD
+        name: str
+        content: str
+        author: int = USER_ID_FIELD
+        created_at: datetime = CREATED_AT_FIELD
+        updated_at: datetime = UPDATED_AT_FIELD
 
+    class Creator:
+        name: str
+        content: str
+        author: int
 
-class TagCreate(TagBase):
-    pass
-
-
-class Tag(TagBase, Table, table=True):
-    pass
-
-
-class PostBase(Named, Authored, Content):
-    pass
-
-
-class PostCreate(PostBase):
-    pass
-
-
-class Post(PostBase, DatedTable, table=True):
-    pass
-
-
-class TaggedPostBase(SQLModel):
-    tag_id: int = Field(foreign_key='tag.id')
-    post_id: int = Field(foreign_key='post.id')
-
-
-class TaggedPostCreate(TaggedPostBase):
-    pass
-
-
-class TaggedPost(TaggedPostBase, Table, table=True):
-    pass
-
-
-class CommentBase(Authored, Content):
-    post_id: int = Field(foreign_key='post.id')
-
-
-class CommentCreate(CommentBase):
-    pass
-
-
-class Comment(CommentBase, DatedTable, table=True):
-    pass
-
-
-@dataclass
-class ModelInfo:
-    table: type[SQLModel]
-    creator: type[SQLModel]
-    prefix: str
-
-    @property
-    def tags(self):
-        return [self.prefix.replace('_', ' ').capitalize()]
-
-
-MODELS: dict[str, ModelInfo] = {
-    "user": ModelInfo(User, UserCreate, "users"),
-    "tag": ModelInfo(Tag, TagCreate, "tags"),
-    "post": ModelInfo(Post, PostCreate, "posts"),
-    "tagged_post": ModelInfo(TaggedPost, TaggedPostCreate, "tagged_posts"),
-    "comment": ModelInfo(Comment, CommentCreate, "comments"),
-}
+    class Updater:
+        name: str | None = None
+        content: str | None = None
+        author: int | None = None
 
 
 DB = Path("forum.db")
@@ -184,6 +192,8 @@ def seed() -> None:
             {"thread_id": 3, "author": 3, "content": "Post 6 content"},
         ),
     )
+
+print(CommentModel.get_all())
 
 
 def create_all(*, wipe_old: bool = False, do_seed: bool = False) -> None:
