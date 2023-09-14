@@ -32,6 +32,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Hello world
+
 
 # generate CRUD routes
 for model_info in MODELS.values():
