@@ -8,7 +8,6 @@ from fastapi import HTTPException, Depends, APIRouter
 from typing import Generator
 
 from sqlmodel import Field, Session, SQLModel, create_engine, func, select, Relationship, or_
-from pydantic import BaseModel, root_validator
 from .utils import query_factory, sort_factory, FILTER, SORT
 
 
@@ -60,10 +59,6 @@ UPDATED_AT_FIELD = Field(
     default_factory=func.now,
     sa_column_kwargs={"onupdate": func.now()},
 )
-
-
-class Index(SQLModel):
-    id: int  # noqa: A003
 
 
 class ConfirmationModel(SQLModel):
@@ -328,8 +323,7 @@ class TaggedPost(Endpointed):
     
     class Table(SQLModel, table=True):
         __tablename__ = 'tagged_post'
-        
-        # id: int = ID_FIELD
+
         tag_id: int | None = TAG_ID_FIELD
         post_id: int | None = POST_ID_FIELD
 
@@ -355,8 +349,6 @@ class Tag(Endpointed):
         id: int | None = ID_FIELD
         name: str | None
 
-        # posts: list['Post.Table'] = Relationship(back_populates='tags', link_model=TaggedPost.Table)
-
     class Creator(SQLModel):
         name: str
 
@@ -368,7 +360,6 @@ class Post(Endpointed):
     PREFIX = 'posts'
 
     SEED_OBJS = (
-        # {'name': 'Post1', 'content': 'Post1 content', 'author': 1, 'tags': [Tag.Creator(**Tag.SEED_OBJS[0])]},
         {'name': 'Post1', 'content': 'Post1 content', 'author': 1},
     )
 
@@ -396,9 +387,6 @@ class Post(Endpointed):
     class Reader(Base):
         tags: list[Tag.Table] | None
 
-    class Filter(Base):
-        tags: list[int]
-
     @classmethod
     def obj_apply(cls, obj, session):
         obj = obj[0]
@@ -413,17 +401,20 @@ class Post(Endpointed):
         new_obj = obj.copy(update={'tags': tags})
         return new_obj
 
-
     @classmethod
     def query_apply(
         cls,
         query,
         name: str | None = None,
         author: int | None = None,
-        tags: str = None,
+        tags: str | None = None,
+        earliest_created: datetime | None = None,
+        latest_created: datetime | None = None,
+        earliest_updated: datetime | None = None,
+        latest_updated: datetime | None = None
     ):
         # ignore passed in query, use our own
-        query = select(cls.Table, TaggedPost.Table, User.Table).where(cls.Table.id != -1000)
+        query = select(cls.Table, TaggedPost.Table, User.Table)
         if name:
             query = query.where(cls.Table.name == name)
         if author:
@@ -435,6 +426,16 @@ class Post(Endpointed):
                     TaggedPost.Table.post_id == cls.Table.id,
                     TaggedPost.Table.tag_id == tag
                 )
+
+        # TODO check that this actually filters correctly
+        if earliest_created:
+            query = query.where(cls.Table.created_at > earliest_created)
+        if latest_created:
+            query = query.where(cls.Table.created_at < latest_created)
+        if earliest_updated:
+            query = query.where(cls.Table.updated_at > earliest_updated)
+        if latest_updated:
+            query = query.where(cls.Table.updated_at < earliest_updated)
         return query
 
 
@@ -448,8 +449,23 @@ class Post(Endpointed):
             name: str | None = None,
             author: int | None = None,
             tags: str = None,
+            earliest_created: datetime | None = None,
+            latest_created: datetime | None = None,
+            earliest_updated: datetime | None = None,
+            latest_updated: datetime | None = None
         ):
-            return cls._do_get_all(session, pagination, sort_, name=name, author=author, tags=tags)
+            return cls._do_get_all(
+                session,
+                pagination,
+                sort_,
+                name=name,
+                author=author,
+                tags=tags,
+                earliest_created=earliest_created,
+                latest_created=latest_created,
+                earliest_update=earliest_updated,
+                latest_update=latest_updated,
+            )
         return route
 
 class Comment(Endpointed):

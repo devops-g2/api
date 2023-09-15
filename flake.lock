@@ -108,11 +108,11 @@
         "nixpkgs": "nixpkgs_2"
       },
       "locked": {
-        "lastModified": 1693917833,
-        "narHash": "sha256-P/zfS1EqFvCKQ4MZn98Ri91brVf+MsLj9NnTvRNTKQw=",
+        "lastModified": 1694806452,
+        "narHash": "sha256-lwrhyuxs6bia90yX2pgXboBgdR/ly49ZTWqLrHtwYlk=",
         "owner": "emanueljg",
         "repo": "poetry-overrides",
-        "rev": "d99e46e1ca0f778b603fbfdf070118a6ccbda7a9",
+        "rev": "940db6f78be6c15c4b6492310f8eabf1359541d7",
         "type": "github"
       },
       "original": {
