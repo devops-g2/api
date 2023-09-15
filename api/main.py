@@ -6,6 +6,7 @@ from fastapi import FastAPI, Depends
 from fastapi.responses import PlainTextResponse
 from fastapi_crudrouter import SQLAlchemyCRUDRouter
 from sqlmodel import Session, select
+from fastapi.middleware.cors import CORSMiddleware
 
 
 # from .models import MODELS, User, UserCreate, Tag, TagCreate, Post, PostCreate, Comment, CommentCreate, Index, create_all, get_db
@@ -20,6 +21,14 @@ TaggedPost.include_endpoints(app)
 Comment.include_endpoints(app)
 
 app.include_router(Endpointed.ROUTER)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=['*'],
+    allow_headers=["*"]
+)
 
 
 # # # generate CRUD routes
