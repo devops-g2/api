@@ -1,4 +1,5 @@
 from __future__ import annotations
+from functools import partial
 
 from typing import Annotated, Type
 from datetime import datetime  # noqa: TCH003
@@ -8,7 +9,7 @@ from typing import Generator
 
 from sqlmodel import Field, Session, SQLModel, create_engine, func, select, Relationship
 from pydantic import BaseModel, root_validator
-from fastapi.params import Depends as Blegh
+from .utils import query_factory, sort_factory, FILTER, SORT
 
 
 
@@ -72,6 +73,27 @@ class ConfirmationModel(SQLModel):
 class Endpointed:
     ROUTER = APIRouter()
 
+
+    # class Table:
+    #     pass
+
+
+    # class Creator:
+    #     pass
+
+
+    # class Updater:
+    #     pass
+
+    # class Reader:
+    #     pass
+
+
+    # @classmethod
+    # def __init_subclass__(cls):
+        # cls.Table = cls.Table
+        # cls.Reader = getattr(cls, 'Reader', cls.Table)
+
     @classmethod
     def obj_apply(cls, obj, session):
         return obj
@@ -84,6 +106,43 @@ class Endpointed:
     def get_filter_query(cls):
         # print(dir(cls.Table))
         return cls.Table.__fields__
+
+    @classmethod
+    def get_pk(cls):
+        return cls.Table.__table__.primary_key.columns.keys()[0]
+
+    @classmethod
+    def select(cls):
+        return select(cls.Table)
+
+    @classmethod
+    def query_apply(cls, query, *args, **kwargs):
+        return query
+
+    @classmethod
+    def paginate(cls, query, pagination):
+        return query \
+            .offset(pagination['skip']) \
+            .limit(pagination['limit'])
+
+    @classmethod
+    def sort(cls, query, sort_):
+        if sort_:
+            field = getattr(cls.Table, sort_.get("sort", cls.get_pk()))
+            order = field.desc() if sort_.get("reverse", False) else field
+            query = query.order_by(order)
+            return query
+        return query
+       
+    @classmethod
+    def build_query(cls, sort_, pagination, *args, **kwargs):
+        query = cls.select()
+        query = cls.query_apply(query, *args, **kwargs)
+        query = cls.sort(query, sort_)
+        query = cls.paginate(query, pagination)
+        return query
+
+
 
     @classmethod
     def create(cls):
@@ -101,17 +160,14 @@ class Endpointed:
 
     @classmethod
     def get_all(cls):
-        
         def route(
             *,
             session: Session = Depends(get_db),
             pagination: Pagination,
+            sort_: SORT = sort_factory(cls.Table)
         ):
-            objs = session.exec(
-                select(cls.Table)
-                .offset(pagination['skip'])
-                .limit(pagination['limit'])
-            ).all()
+            query = cls.build_query(sort_, pagination)
+            objs = session.exec(query).all()
             return [cls.obj_apply(obj, session) for obj in objs]
         return route
 
@@ -347,6 +403,9 @@ class Post(Endpointed):
     class Reader(Base):
         tags: list[Tag.Table] | None
 
+    class Filter(Base):
+        tags: list[int]
+
     @classmethod
     def obj_apply(cls, obj, session):
         tagged_posts = session.exec(
@@ -359,6 +418,22 @@ class Post(Endpointed):
         ]
         new_obj = obj.copy(update={'tags': tags})
         return new_obj
+
+
+
+    @classmethod
+    def get_all(cls):
+        def route(
+            *,
+            session: Session = Depends(get_db),
+            pagination: Pagination,
+            sort_: SORT = sort_factory(cls.Table),
+            filter: Annotated[cls.Filter]
+        ):
+            query = cls.build_query(sort_, pagination)
+            objs = session.exec(query).all()
+            return [cls.obj_apply(obj, session) for obj in objs]
+        route.__annotations__['filter'] = cls.Filter
 
 
 class Comment(Endpointed):
@@ -441,3 +516,20 @@ def create_all(*, wipe_old: bool = False, do_seed: bool = False) -> None:
         # seed()
 
 print(User.get_filter_query())
+# print(User.Table.__fields__)
+# print(dir(Post.Creator))
+# print(Post.Creator.schema())
+# print(Post.Reader.__signature__)
+print(dir(Post.Reader))
+# Post.Reader.__name__ = 'Post.Reader'
+# print(Post.Reader.__dict__)
+# print(Post.Reader.__fields__)
+# # print(Post.Reader.dict(exclude_unset=True))
+# print(Post.Reader.)
+# for k in dir(Post.Reader):
+#     try:
+#         print(k, getattr(Post.Reader, k))
+#     except AttributeError:
+#         print(f'error: {k}')
+
+# print(str(Post.Reader.__repr__))

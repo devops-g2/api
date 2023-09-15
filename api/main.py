@@ -231,6 +231,8 @@ endpoint_str = textwrap.dedent(
 
 @app.get("/tldr", response_class=PlainTextResponse)
 async def get_tldr_docs() -> str:
+    return str(Post.Reader.schema())
+    # return str(Post.Reader.__repr__())
     # return str(dir(app))
     lines_mixed_types = ["Objects", "-------", ""]
     for model in MODELS.values():
