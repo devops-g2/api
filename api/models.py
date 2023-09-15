@@ -7,7 +7,7 @@ from pathlib import Path
 from fastapi import HTTPException, Depends, APIRouter
 from typing import Generator
 
-from sqlmodel import Field, Session, SQLModel, create_engine, func, select, Relationship
+from sqlmodel import Field, Session, SQLModel, create_engine, func, select, Relationship, or_
 from pydantic import BaseModel, root_validator
 from .utils import query_factory, sort_factory, FILTER, SORT
 
@@ -134,13 +134,6 @@ class Endpointed:
             return query
         return query
        
-    @classmethod
-    def build_query(cls, sort_, pagination, *args, **kwargs):
-        query = cls.select()
-        query = cls.query_apply(query, *args, **kwargs)
-        query = cls.sort(query, sort_)
-        query = cls.paginate(query, pagination)
-        return query
 
 
 
@@ -160,6 +153,16 @@ class Endpointed:
         return route
 
     @classmethod
+    def _do_get_all(cls, session, pagination, sort_, *args, **kwargs):
+        query = cls.select()
+        query = cls.query_apply(query, *args, **kwargs)
+        query = cls.sort(query, sort_)
+        query = cls.paginate(query, pagination)
+        objs = session.exec(query).all()
+        return [cls.obj_apply(obj, session) for obj in objs]
+        
+
+    @classmethod
     def get_all(cls):
         def route(
             *,
@@ -167,9 +170,7 @@ class Endpointed:
             pagination: Pagination,
             sort_: SORT = sort_factory(cls.Table)
         ):
-            query = cls.build_query(sort_, pagination)
-            objs = session.exec(query).all()
-            return [cls.obj_apply(obj, session) for obj in objs]
+            return cls._do_get_all(session=session, pagination=pagination, sort_=sort_)
         return route
 
     @classmethod
@@ -190,7 +191,7 @@ class Endpointed:
             *,
             session: Session = Depends(get_db),
             obj_id: int,
-            obj  # type: cls.Updater (really annotated at route initialization)
+            obj  
         ):
             if not (db_obj := session.get(cls.Table, obj_id)):
                 raise ElemNotFoundException(cls.__name__, obj_id)
@@ -223,11 +224,6 @@ class Endpointed:
     def include_endpoints(cls, app):
         tags = cls.get_tags()
 
-        # This rinky dink hack is because we can't typehint obj with
-        # obj: cls.<Model class>
-        # since pydantic is not aware of cls at compile time.
-        # get_all.__annotations__['obj'] = cls.Table
-        # create
         cls.ROUTER.add_api_route(
             methods=['POST'],
             path=f'/{cls.PREFIX}/',
@@ -239,7 +235,7 @@ class Endpointed:
         # many
         cls.ROUTER.add_api_route(
             methods=['GET'],
-            path=f'/{cls.PREFIX}/',
+            path=f'/{cls.PREFIX}',
             endpoint=cls.get_all(),
             response_model=list[getattr(cls, 'Reader', cls.Table)],
             tags=tags,
@@ -405,6 +401,7 @@ class Post(Endpointed):
 
     @classmethod
     def obj_apply(cls, obj, session):
+        obj = obj[0]
         tagged_posts = session.exec(
             select(TaggedPost.Table)
             .where(TaggedPost.Table.post_id == obj.id)
@@ -419,13 +416,41 @@ class Post(Endpointed):
 
     @classmethod
     def query_apply(
+        cls,
         query,
         name: str | None = None,
-        author: str | int | None = None,
-        tags: list[int] = None,
+        author: int | None = None,
+        tags: str = None,
     ):
+        # ignore passed in query, use our own
+        query = select(cls.Table, TaggedPost.Table, User.Table).where(cls.Table.id != -1000)
+        if name:
+            query = query.where(cls.Table.name == name)
+        if author:
+            query = query.where(cls.Table.author == author)
+        if tags:
+            tag_ids = tags.split(',')
+            for tag in tag_ids:
+                query = query.where(
+                    TaggedPost.Table.post_id == cls.Table.id,
+                    TaggedPost.Table.tag_id == tag
+                )
         return query
 
+
+    @classmethod
+    def get_all(cls):
+        def route(
+            *,
+            session: Session = Depends(get_db),
+            pagination: Pagination,
+            sort_: SORT = sort_factory(cls.Table),
+            name: str | None = None,
+            author: int | None = None,
+            tags: str = None,
+        ):
+            return cls._do_get_all(session, pagination, sort_, name=name, author=author, tags=tags)
+        return route
 
 class Comment(Endpointed):
     PREFIX = 'comments'
