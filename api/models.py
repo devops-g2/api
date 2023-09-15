@@ -149,13 +149,14 @@ class Endpointed:
         def route(
             *,
             session: Session = Depends(get_db),
-            obj  # type: cls.Creator (really annotated at route initializationy)
+            obj
         ):
             db_obj = cls.Table.from_orm(obj)
             session.add(db_obj)
             session.commit()
             session.refresh(db_obj)
             return db_obj
+        route.__annotations__['obj'] = cls.Creator
         return route
 
     @classmethod
@@ -201,6 +202,7 @@ class Endpointed:
             session.commit()
             session.refresh(db_obj)
             return db_obj
+        route.__annotations__['obj'] = cls.Updater
         return route
 
     @classmethod
@@ -224,17 +226,12 @@ class Endpointed:
         # This rinky dink hack is because we can't typehint obj with
         # obj: cls.<Model class>
         # since pydantic is not aware of cls at compile time.
-        create = cls.create()
-        create.__annotations__['obj'] = cls.Creator
         # get_all.__annotations__['obj'] = cls.Table
-        update = cls.update()
-        update.__annotations__['obj'] = cls.Updater
-
         # create
         cls.ROUTER.add_api_route(
             methods=['POST'],
             path=f'/{cls.PREFIX}/',
-            endpoint=create,
+            endpoint=cls.create(),
             tags=tags,
             name=f'Create a {cls.__name__.lower()}'
         )
@@ -263,7 +260,7 @@ class Endpointed:
         cls.ROUTER.add_api_route(
             methods=['PATCH'],
             path=f'/{cls.PREFIX}/{{obj_id}}',
-            endpoint=update,
+            endpoint=cls.update(),
             response_model=getattr(cls, 'Reader', cls.Table),
             tags=tags,
             name=f'Update a {cls.__name__.lower()}'
@@ -420,20 +417,14 @@ class Post(Endpointed):
         return new_obj
 
 
-
     @classmethod
-    def get_all(cls):
-        def route(
-            *,
-            session: Session = Depends(get_db),
-            pagination: Pagination,
-            sort_: SORT = sort_factory(cls.Table),
-            filter: Annotated[cls.Filter]
-        ):
-            query = cls.build_query(sort_, pagination)
-            objs = session.exec(query).all()
-            return [cls.obj_apply(obj, session) for obj in objs]
-        route.__annotations__['filter'] = cls.Filter
+    def query_apply(
+        query,
+        name: str | None = None,
+        author: str | int | None = None,
+        tags: list[int] = None,
+    ):
+        return query
 
 
 class Comment(Endpointed):
