@@ -9,16 +9,12 @@ from typing import Generator
 
 from sqlmodel import Field, Session, SQLModel, create_engine, func, select, Relationship, or_
 from .utils import query_factory, sort_factory, FILTER, SORT
+import inspect
 
 
-
-# engine = create_engine(
-#     f"sqlite:///{DB}",
-#     echo=True,
-#     connect_args={"check_same_thread": False},
-# )
-
-
+import warnings
+from sqlalchemy.exc import SAWarning
+warnings.filterwarnings("ignore", category=SAWarning)
 
 
 def pagination(skip: int = 0, limit: int | None = None) -> dict[str, int | None]:
@@ -59,6 +55,25 @@ class Endpointer:
     ROUTER = APIRouter()
 
     engine = None
+
+    @classmethod
+    def endpointed_init(cls, app):
+        raise NotImplemented
+
+    @classmethod
+    def init_app(cls, app):
+
+        f_name_of_myself = inspect.currentframe().f_code.co_name
+        my_f = getattr(cls, f_name_of_myself)
+        my_f_path = my_f.__qualname__
+        f_origin_class_name = my_f_path.split('.')[0]
+        if cls.__name__ == f_origin_class_name:  # is original superclass
+            for subclass in cls.__subclasses__():
+                subclass.include_endpoints(app)
+            app.include_router(cls.ROUTER)
+        else:  # is inheriting subclass
+            cls.endpointed_init(app)
+            
 
     @classmethod
     def init(cls, engine, do_seed=False):
@@ -261,7 +276,7 @@ class Endpointer:
 
     @classmethod
     def seed(cls):
-        with Session(engine) as session:
+        with Session(cls.engine) as session:
             for obj in cls.SEED_OBJS:
                 create_obj = cls.Creator(**obj)
                 db_obj = cls.Table.from_orm(create_obj)

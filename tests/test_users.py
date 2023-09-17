@@ -15,4 +15,5 @@ def users(session):
 def test_users_exist(users):
     print('time to get')
     r = mkclient().get('/users')
+    print(r)
     assert r.status_code == 200

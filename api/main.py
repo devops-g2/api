@@ -10,24 +10,12 @@ from fastapi_crudrouter import SQLAlchemyCRUDRouter
 from sqlmodel import Session, select, create_engine
 from fastapi.middleware.cors import CORSMiddleware
 
-import warnings
-from sqlalchemy.exc import SAWarning
-warnings.filterwarnings("ignore", category=SAWarning)
-
-
-# from .models import MODELS, User, UserCreate, Tag, TagCreate, Post, PostCreate, Comment, CommentCreate, Index, create_all, get_db
-from .models import User, Tag, Post, TaggedPost, Comment, Endpointer
+from .models import Endpointer
 
 
 app = FastAPI()
 
-User.include_endpoints(app)
-Tag.include_endpoints(app)
-Post.include_endpoints(app)
-TaggedPost.include_endpoints(app)
-Comment.include_endpoints(app)
-
-app.include_router(Endpointer.ROUTER)
+Endpointer.init_app(app)
 
 app.add_middleware(
    CORSMiddleware,
@@ -39,13 +27,18 @@ app.add_middleware(
 
 
 DB = Path('forum.db')
+
+# prod
 ENGINE = create_engine(f'sqlite:///{DB}')
+
+# echo SQL statements sent; useful for debugging
+# ENGINE = create_engine(f'sqlite:///{DB}', echo=True)
 
 
 @app.on_event("startup")
 def on_startup() -> None:
     DB.unlink(missing_ok=True)
-    Endpointer.init(ENGINE)
+    Endpointer.init(ENGINE, do_seed=True)
 
 @app.get('/')
 async def root():
