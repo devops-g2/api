@@ -1,6 +1,6 @@
-from .common import mkclient, session
+from .common import mkclient
 
 
-def test_root_working():
-    r = mkclient().get('/')
+def test_root_working() -> None:
+    r = mkclient().get("/")
     assert r.status_code == 200

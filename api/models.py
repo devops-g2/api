@@ -1,19 +1,52 @@
 from __future__ import annotations
-from functools import partial
+from enum import Enum
 
-from typing import Annotated, Type
-from datetime import datetime  # noqa: TCH003
-from pathlib import Path
-from fastapi import HTTPException, Depends, APIRouter
-from typing import Generator
-
-from sqlmodel import Field, Session, SQLModel, create_engine, func, select, Relationship, or_
-from .utils import query_factory, sort_factory, FILTER, SORT
 import inspect
-
-
 import warnings
+import sqlalchemy
+from sqlalchemy.sql.schema import Table as SQLAlchemyTable
+from datetime import datetime  # noqa: TCH003
+from types import NotImplementedType
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Generator,
+    Type,
+    Any,
+    Protocol,
+    Protocol,
+    ClassVar,
+    TypeVar,
+    get_args,
+    Callable,
+    Sequence,
+    no_type_check,
+)
+from sqlalchemy.orm.decl_base import _DeclMappedClassProtocol
+from mypy_extensions import DefaultNamedArg, NamedArg
+
+# from sqlalchemy import func
+
+from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from sqlalchemy.exc import SAWarning
+from sqlmodel import (
+    func,
+    Field,
+    Session,
+    SQLModel,
+    select,
+    # SQLModelMetaclass
+)
+from sqlmodel.main import SQLModelMetaclass
+from sqlmodel.sql.expression import SelectOfScalar
+from sqlmodel.sql.expression import _TModel_0, _TSelect
+
+
+from .utils import SORT, sort_factory
+
+if TYPE_CHECKING:
+    from sqlalchemy.future import Engine as SQLAlchemyEngine
+
 warnings.filterwarnings("ignore", category=SAWarning)
 
 
@@ -33,17 +66,16 @@ class ElemNotFoundException(HTTPException):
         return f"{self.elem} #{self.n} not found"
 
 
-ID_FIELD = Field(primary_key=True, index=True, default=None)  # noqa: A003
+ID_FIELD = Field(primary_key=True, index=True, default=None)
 
-USER_ID_FIELD = Field(foreign_key='user.id')
-TAG_ID_FIELD = Field(foreign_key='tag.id', primary_key=True)
-POST_ID_FIELD = Field(foreign_key='post.id', primary_key=True)
+USER_ID_FIELD = Field(foreign_key="user.id")
+TAG_ID_FIELD = Field(foreign_key="tag.id", primary_key=True)
+POST_ID_FIELD = Field(foreign_key="post.id", primary_key=True)
 
-CREATED_AT_FIELD = Field(default_factory=func.now)
-
+CREATED_AT_FIELD = Field(default=None, sa_column_kwargs={"default": func.now()})
 UPDATED_AT_FIELD = Field(
-    default_factory=func.now,
-    sa_column_kwargs={"onupdate": func.now()},
+    default=None,
+    sa_column_kwargs={"default": func.now(), "onupdate": func.now()},
 )
 
 
@@ -51,39 +83,61 @@ class ConfirmationModel(SQLModel):
     ok: bool
 
 
-class Endpointer:
-    ROUTER = APIRouter()
+M = TypeVar("M", bound=SQLModel, covariant=True)
+T = TypeVar("T")
 
-    engine = None
+
+class Endpointer(Protocol):
+    ROUTER: ClassVar[APIRouter] = APIRouter()
+    prefix: ClassVar[str]
+    SEED_OBJS: ClassVar[tuple[dict[str, Any]] | tuple[()]]
+
+    engine: ClassVar[SQLAlchemyEngine]
+
+    class Table(SQLModel):
+        pass
+
+    class Creator(SQLModel):
+        pass
+
+    class Updater(SQLModel):
+        pass
 
     @classmethod
-    def endpointed_init(cls, app):
-        raise NotImplemented
+    def endpointed_init(cls: Type[Endpointer], app: FastAPI) -> None:
+        raise NotImplementedError
 
     @classmethod
-    def init_app(cls, app):
-
-        f_name_of_myself = inspect.currentframe().f_code.co_name
+    def init_app(cls: Type[Endpointer], app: FastAPI) -> None:
+        cf = inspect.currentframe()
+        if not cf:
+            raise RuntimeError()
+        f_name_of_myself = cf.f_code.co_name
         my_f = getattr(cls, f_name_of_myself)
         my_f_path = my_f.__qualname__
-        f_origin_class_name = my_f_path.split('.')[0]
+        f_origin_class_name = my_f_path.split(".")[0]
         if cls.__name__ == f_origin_class_name:  # is original superclass
             for subclass in cls.__subclasses__():
                 subclass.include_endpoints(app)
             app.include_router(cls.ROUTER)
         else:  # is inheriting subclass
             cls.endpointed_init(app)
-            
 
     @classmethod
-    def init(cls, engine, do_seed=False):
+    def init(
+        cls: Type[Endpointer],
+        engine: SQLAlchemyEngine,
+        *,
+        do_seed: bool = False,
+    ) -> None:
         cls.engine = engine
         SQLModel.metadata.create_all(bind=cls.engine)
         if do_seed:
-            Endpointer.seed_all_subclasses()
+            for subclass in Endpointer.__subclasses__():
+                subclass.seed()
 
     @classmethod
-    def get_db(cls) -> Generator[Session, None, None]:
+    def get_db(cls: Type[Endpointer]) -> Generator[Session, None, None]:
         session = Session(cls.engine)
         try:
             yield session
@@ -92,107 +146,138 @@ class Endpointer:
             session.close()
 
     @classmethod
-    def obj_apply(cls, obj, session):
+    def obj_apply(cls, obj: Table, session: Session) -> Table:
         return obj
 
     @classmethod
-    def get_tags(cls):
-        return [cls.PREFIX.replace('_', ' ')]
+    def get_tags(cls: Type[Endpointer]) -> list[str | Enum]:
+        return [cls.prefix.replace("_", " ")]
 
     @classmethod
-    def get_filter_query(cls):
-        # print(dir(cls.Table))
-        return cls.Table.__fields__
+    def get_pk(cls: Type[Endpointer]) -> Any:
+        return cls.Table.__table__.primary_key.columns.keys()[0]  # type: ignore
+
+    Tb = TypeVar("Tb", bound=Table)
 
     @classmethod
-    def get_pk(cls):
-        return cls.Table.__table__.primary_key.columns.keys()[0]
-
-    @classmethod
-    def select(cls):
+    def select(cls: Type[Endpointer]) -> SelectOfScalar[Table]:
+        # print(get_ar(type(select(cls.Table))))
+        # print(type(select(cls.Table)).__parameters__)
+        # print(type(select(cls.Table)))
         return select(cls.Table)
 
+    # select.__annotations__['return'] = SelectOfScalar[Table]
+
     @classmethod
-    def query_apply(cls, query, *args, **kwargs):
+    def query_apply(
+        cls, query: SelectOfScalar[Table], *args: Any, **kwargs: Any
+    ) -> SelectOfScalar[Table]:
         return query
 
     @classmethod
-    def paginate(cls, query, pagination):
-        return query \
-            .offset(pagination['skip']) \
-            .limit(pagination['limit'])
+    def paginate(
+        cls, query: SelectOfScalar[Table], pagination: Pagination
+    ) -> SelectOfScalar[Table]:
+        return query.offset(pagination["skip"]).limit(pagination["limit"])
 
     @classmethod
-    def sort(cls, query, sort_):
+    def sort(cls, query: SelectOfScalar[Table], sort_: SORT) -> SelectOfScalar[Table]:
         if sort_:
             field = getattr(cls.Table, sort_.get("sort", cls.get_pk()))
             order = field.desc() if sort_.get("reverse", False) else field
-            query = query.order_by(order)
-            return query
+            return query.order_by(order)
         return query
-       
-
-
 
     @classmethod
-    def create(cls):
+    def create(
+        cls,
+    ) -> Callable[[DefaultNamedArg(Session, "session"), NamedArg(Any, "obj")], Table]:
         def route(
-            *,
-            session: Session = Depends(cls.get_db),
-            obj
-        ):
-            db_obj = cls.Table.from_orm(obj)
+            *, session: Session = Depends(cls.get_db), obj: Endpointer.Creator
+        ) -> Endpointer.Table:
+            db_obj = cls.Table.model_validate(obj)
             session.add(db_obj)
             session.commit()
             session.refresh(db_obj)
             return db_obj
-        route.__annotations__['obj'] = cls.Creator
+
+        route.__annotations__["obj"] = cls.Creator
         return route
 
     @classmethod
-    def _do_get_all(cls, session, pagination, sort_, *args, **kwargs):
+    def _do_get_all(
+        cls,
+        session: Session,
+        pagination: Pagination,
+        sort_: SORT,
+        *args: Any,
+        **kwargs: Any,
+    ) -> list[Table]:
         query = cls.select()
         query = cls.query_apply(query, *args, **kwargs)
         query = cls.sort(query, sort_)
         query = cls.paginate(query, pagination)
         objs = session.exec(query).all()
         return [cls.obj_apply(obj, session) for obj in objs]
-        
 
     @classmethod
-    def get_all(cls):
+    def get_all(
+        cls,
+    ) -> Callable[
+        [
+            DefaultNamedArg(Session, "session"),
+            NamedArg(dict[str, int | None], "pagination"),
+            DefaultNamedArg(dict[str, str], "sort_"),
+        ],
+        list[Table],
+    ]:
         def route(
             *,
             session: Session = Depends(cls.get_db),
             pagination: Pagination,
-            sort_: SORT = sort_factory(cls.Table)
-        ):
+            sort_: SORT = sort_factory(cls.Table),
+        ) -> list[Endpointer.Table]:
             return cls._do_get_all(session=session, pagination=pagination, sort_=sort_)
+
         return route
 
     @classmethod
-    def get_one(cls):
+    def get_one(
+        cls,
+    ) -> Callable[
+        [DefaultNamedArg(Session, "session"), NamedArg(int, "obj_id")], Table
+    ]:
         def route(
             *,
             session: Session = Depends(cls.get_db),
             obj_id: int,
-        ):
+        ) -> Endpointer.Table:
             if not (obj := session.get(cls.Table, obj_id)):
-               raise ElemNotFoundException(cls.__name__, obj_id)
+                raise ElemNotFoundException(cls.__name__, obj_id)
             return cls.obj_apply(obj, session)
+
         return route
 
     @classmethod
-    def update(cls):
+    def update(
+        cls,
+    ) -> Callable[
+        [
+            DefaultNamedArg(Session, "session"),
+            NamedArg(int, "obj_id"),
+            NamedArg(Table, "obj"),
+        ],
+        Table,
+    ]:
         def route(
             *,
             session: Session = Depends(cls.get_db),
             obj_id: int,
-            obj  
-        ):
+            obj: Endpointer.Table,
+        ) -> Endpointer.Table:
             if not (db_obj := session.get(cls.Table, obj_id)):
                 raise ElemNotFoundException(cls.__name__, obj_id)
-            
+
             obj_data = obj.dict(exclude_unset=True)
             for key, value in obj_data.items():
                 setattr(db_obj, key, value)
@@ -200,105 +285,98 @@ class Endpointer:
             session.commit()
             session.refresh(db_obj)
             return db_obj
-        route.__annotations__['obj'] = cls.Updater
+
+        route.__annotations__["obj"] = cls.Updater
         return route
 
     @classmethod
-    def delete(cls):
+    def delete(
+        cls,
+    ) -> Callable[
+        [DefaultNamedArg(Session, "session"), NamedArg(int, "obj_id")], dict[str, bool]
+    ]:
         def route(
-            *,
-            session: Session = Depends(cls.get_db),
-            obj_id: int
-        ):
+            *, session: Session = Depends(cls.get_db), obj_id: int
+        ) -> dict[str, bool]:
             if not (obj := session.get(cls.Table, obj_id)):
                 raise ElemNotFoundException(cls.__name__, obj_id)
             session.delete(obj)
             session.commit()
-            return {'ok': True}
+            return {"ok": True}
+
         return route
 
     @classmethod
-    def include_endpoints(cls, app):
-        tags = cls.get_tags()
+    def include_endpoints(cls, app: FastAPI) -> None:
+        tags: list[str | Enum] = cls.get_tags()
 
+        # create
         cls.ROUTER.add_api_route(
-            methods=['POST'],
-            path=f'/{cls.PREFIX}/',
+            methods=["POST"],
+            path=f"/{cls.prefix}",
             endpoint=cls.create(),
             tags=tags,
-            name=f'Create a {cls.__name__.lower()}'
+            name=f"Create a {cls.__name__.lower()}",
         )
 
         # many
         cls.ROUTER.add_api_route(
-            methods=['GET'],
-            path=f'/{cls.PREFIX}',
+            methods=["GET"],
+            path=f"/{cls.prefix}",
             endpoint=cls.get_all(),
-            response_model=list[getattr(cls, 'Reader', cls.Table)],
+            response_model=list[getattr(cls, "Reader", cls.Table)],  # type: ignore
             tags=tags,
-            name=f'Get all {tags[0]}'
+            name=f"Get all {tags[0]}",
         )
 
         # one
         cls.ROUTER.add_api_route(
-            methods=['GET'],
-            path=f'/{cls.PREFIX}/{{obj_id}}',
+            methods=["GET"],
+            path=f"/{cls.prefix}/{{obj_id}}",
             endpoint=cls.get_one(),
-            response_model=getattr(cls, 'Reader', cls.Table),
+            response_model=getattr(cls, "Reader", cls.Table),
             tags=tags,
-            name=f'Get one {cls.__name__.lower()}'
+            name=f"Get one {cls.__name__.lower()}",
         )
 
         # update
         cls.ROUTER.add_api_route(
-            methods=['PATCH'],
-            path=f'/{cls.PREFIX}/{{obj_id}}',
+            methods=["PATCH"],
+            path=f"/{cls.prefix}/{{obj_id}}",
             endpoint=cls.update(),
-            response_model=getattr(cls, 'Reader', cls.Table),
+            response_model=getattr(cls, "Reader", cls.Table),
             tags=tags,
-            name=f'Update a {cls.__name__.lower()}'
+            name=f"Update a {cls.__name__.lower()}",
         )
 
         # delete
         cls.ROUTER.add_api_route(
-            methods=['DELETE'],
-            path=f'/{cls.PREFIX}/{{obj_id}}',
+            methods=["DELETE"],
+            path=f"/{cls.prefix}/{{obj_id}}",
             endpoint=cls.delete(),
             response_model=ConfirmationModel,
             tags=tags,
-            name=f'Delete a {cls.__name__.lower()}'
+            name=f"Delete a {cls.__name__.lower()}",
         )
 
-    @staticmethod
-    def include_all_subclass_endpoints(app):
-        for subclass in Endpointer.__subclasses__():
-            subclass.include_endpoints(app)
-
     @classmethod
-    def seed(cls):
+    def seed(cls: Type[Endpointer]) -> None:
         with Session(cls.engine) as session:
             for obj in cls.SEED_OBJS:
                 create_obj = cls.Creator(**obj)
-                db_obj = cls.Table.from_orm(create_obj)
+                db_obj = cls.Table.model_validate(create_obj)
                 session.add(db_obj)
                 session.commit()
                 session.refresh(db_obj)
 
-    @staticmethod
-    def seed_all_subclasses():
-        for subclass in Endpointer.__subclasses__():
-            subclass.seed()
-
 
 class User(Endpointer):
-    PREFIX = 'users'
+    prefix = "users"
 
-    SEED_OBJS = (
-        {'name': 'User1', 'email': 'foo@bar.com', 'password': '12345'},
-    )
-    
+    SEED_OBJS = ({"name": "User1", "email": "foo@bar.com", "password": "12345"},)
+
     class Table(SQLModel, table=True):
-        __tablename__ = 'user'
+        __tablename__ = "user"
 
         id: int | None = ID_FIELD
         name: str | None
@@ -317,14 +395,12 @@ class User(Endpointer):
 
 
 class TaggedPost(Endpointer):
-    PREFIX = 'tagged_posts'
+    prefix = "tagged_posts"
 
-    SEED_OBJS = (
-        {'tag_id': 1, 'post_id': 1},
-    )
-    
+    SEED_OBJS = ({"tag_id": 1, "post_id": 1},)
+
     class Table(SQLModel, table=True):
-        __tablename__ = 'tagged_post'
+        __tablename__ = "tagged_post"
 
         tag_id: int | None = TAG_ID_FIELD
         post_id: int | None = POST_ID_FIELD
@@ -339,14 +415,12 @@ class TaggedPost(Endpointer):
 
 
 class Tag(Endpointer):
-    PREFIX = 'tags'
+    prefix = "tags"
 
-    SEED_OBJS = (
-        {'name': 'Tag1'},
-    )
-    
+    SEED_OBJS = ({"name": "Tag1"},)
+
     class Table(SQLModel, table=True):
-        __tablename__ = 'tag'
+        __tablename__ = "tag"
 
         id: int | None = ID_FIELD
         name: str | None
@@ -359,22 +433,20 @@ class Tag(Endpointer):
 
 
 class Post(Endpointer):
-    PREFIX = 'posts'
+    prefix = "posts"
 
-    SEED_OBJS = (
-        {'name': 'Post1', 'content': 'Post1 content', 'author': 1},
-    )
+    SEED_OBJS = ({"name": "Post1", "content": "Post1 content", "author": 1},)
 
-    class Base(SQLModel):
+    class Base(Endpointer.Table):
         id: int | None = ID_FIELD
         name: str | None
         content: str | None
         author: int | None = USER_ID_FIELD
         created_at: datetime | None = CREATED_AT_FIELD
         updated_at: datetime | None = UPDATED_AT_FIELD
-    
+
     class Table(Base, table=True):
-        __tablename__ = 'post'
+        __tablename__ = "post"
 
     class Creator(SQLModel):
         name: str
@@ -390,31 +462,31 @@ class Post(Endpointer):
         tags: list[Tag.Table] | None
 
     @classmethod
-    def obj_apply(cls, obj, session):
-        obj = obj[0]
+    def obj_apply(cls, obj: Table | sqlalchemy.engine.row.Row[tuple[Table]], session: Session) -> Reader:  # type: ignore[override]
+        if type(obj) is sqlalchemy.engine.row.Row:
+            obj = obj[0]
         tagged_posts = session.exec(
-            select(TaggedPost.Table)
-            .where(TaggedPost.Table.post_id == obj.id)
+            select(TaggedPost.Table).where(TaggedPost.Table.post_id == obj.id)  # type: ignore
         ).all()
         tags = [
-            session.get(Tag.Table, tagged_post.tag_id)
-            for tagged_post in tagged_posts
+            session.get(Tag.Table, tagged_post.tag_id) for tagged_post in tagged_posts
         ]
-        new_obj = obj.copy(update={'tags': tags})
-        return new_obj
+        # new_obj = obj.tags = tags
+        # return new_obj
+        return obj.copy(update={"tags": tags})  # type: ignore
 
     @classmethod
-    def query_apply(
+    def query_apply(  # type: ignore[override]
         cls,
-        query,
+        query: Any,
         name: str | None = None,
         author: int | None = None,
         tags: str | None = None,
         earliest_created: datetime | None = None,
         latest_created: datetime | None = None,
         earliest_updated: datetime | None = None,
-        latest_updated: datetime | None = None
-    ):
+        latest_updated: datetime | None = None,
+    ) -> Any:
         # ignore passed in query, use our own
         query = select(cls.Table, TaggedPost.Table, User.Table)
         if name:
@@ -422,27 +494,36 @@ class Post(Endpointer):
         if author:
             query = query.where(cls.Table.author == author)
         if tags:
-            tag_ids = tags.split(',')
+            tag_ids = tags.split(",")
             for tag in tag_ids:
                 query = query.where(
                     TaggedPost.Table.post_id == cls.Table.id,
-                    TaggedPost.Table.tag_id == tag
+                    TaggedPost.Table.tag_id == int(tag),
                 )
 
         # TODO check that this actually filters correctly
         if earliest_created:
-            query = query.where(cls.Table.created_at > earliest_created)
+            query = query.where(cls.Table.created_at > earliest_created)  # type: ignore[operator]
         if latest_created:
-            query = query.where(cls.Table.created_at < latest_created)
+            query = query.where(cls.Table.created_at < latest_created)  # type: ignore[operator]
         if earliest_updated:
-            query = query.where(cls.Table.updated_at > earliest_updated)
+            query = query.where(cls.Table.updated_at > earliest_updated)  # type: ignore[operator]
         if latest_updated:
-            query = query.where(cls.Table.updated_at < earliest_updated)
+            query = query.where(cls.Table.updated_at < earliest_updated)  # type: ignore[operator]
+        # query = query.select(cls.Table.id, cls.Table.content, cls.Table.name)
         return query
 
-
     @classmethod
-    def get_all(cls):
+    def get_all(
+        cls,
+    ) -> Callable[
+        [
+            DefaultNamedArg(Session, "session"),
+            NamedArg(dict[str, int | None], "pagination"),
+            DefaultNamedArg(dict[str, str], "sort_"),
+        ],
+        list[Endpointer.Table],
+    ]:
         def route(
             *,
             session: Session = Depends(cls.get_db),
@@ -450,12 +531,12 @@ class Post(Endpointer):
             sort_: SORT = sort_factory(cls.Table),
             name: str | None = None,
             author: int | None = None,
-            tags: str = None,
+            tags: str | None = None,
             earliest_created: datetime | None = None,
             latest_created: datetime | None = None,
             earliest_updated: datetime | None = None,
-            latest_updated: datetime | None = None
-        ):
+            latest_updated: datetime | None = None,
+        ) -> list[Endpointer.Table]:
             return cls._do_get_all(
                 session,
                 pagination,
@@ -465,19 +546,21 @@ class Post(Endpointer):
                 tags=tags,
                 earliest_created=earliest_created,
                 latest_created=latest_created,
-                earliest_update=earliest_updated,
-                latest_update=latest_updated,
+                earliest_updated=earliest_updated,
+                latest_updated=latest_updated,
             )
+
         return route
 
+
 class Comment(Endpointer):
-    PREFIX = 'comments'
+    prefix = "comments"
 
     SEED_OBJS = ()
 
     class Table(SQLModel, table=True):
-        __tablename__ = 'comment'
-        
+        __tablename__ = "comment"
+
         id: int | None = ID_FIELD
         name: str | None
         content: str | None
@@ -494,65 +577,3 @@ class Comment(Endpointer):
         name: str | None = None
         content: str | None = None
         author: int | None = None
-
-
-
-
-# def _seed_table(model: ModelInfo, objs: Iterable[dict[str, Any]]) -> None:
-
-
-# def seed() -> None:
-#     _seed_table(
-#         MODELS["user"],
-#         (
-#             {"name": "User 1", "email": "user1@example.com", "password": "user1"},
-#             {"name": "User 2", "email": "user2@example.com", "password": "user2"},
-#             {"name": "User 3", "email": "user3@example.com", "password": "user3"},
-#         ),
-#     )
-#     _seed_table(
-#         MODELS["category"],
-#         (
-#             {"name": "Category 1"},
-#             {"name": "Category 2"},
-#             {"name": "Category 3"},
-#         ),
-#     )
-#     _seed_table(
-#         MODELS["thread"],
-#         (
-#             {"name": "Thread 1", "category_id": 1, "author": 1},
-#             {"name": "Thread 2", "category_id": 1, "author": 2},
-#             {"name": "Thread 3", "category_id": 2, "author": 3},
-#         ),
-#     )
-#     _seed_table(
-#         MODELS["post"],
-#         (
-#             {"thread_id": 1, "author": 1, "content": "Post 1 content"},
-#             {"thread_id": 1, "author": 2, "content": "Post 2 content"},
-#             {"thread_id": 2, "author": 3, "content": "Post 3 content"},
-#             {"thread_id": 2, "author": 1, "content": "Post 4 content"},
-#             {"thread_id": 3, "author": 2, "content": "Post 5 content"},
-#             {"thread_id": 3, "author": 3, "content": "Post 6 content"},
-#         ),
-#     )
-
-
-
-# print(User.Table.__fields__)
-# print(dir(Post.Creator))
-# print(Post.Creator.schema())
-# print(Post.Reader.__signature__)
-# Post.Reader.__name__ = 'Post.Reader'
-# print(Post.Reader.__dict__)
-# print(Post.Reader.__fields__)
-# # print(Post.Reader.dict(exclude_unset=True))
-# print(Post.Reader.)
-# for k in dir(Post.Reader):
-#     try:
-#         print(k, getattr(Post.Reader, k))
-#     except AttributeError:
-#         print(f'error: {k}')
-
-# print(str(Post.Reader.__repr__))
