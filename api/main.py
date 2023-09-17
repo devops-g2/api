@@ -3,11 +3,11 @@ from __future__ import annotations
 
 
 import textwrap
-
+from pathlib import Path
 from fastapi import FastAPI, Depends
 from fastapi.responses import PlainTextResponse
 from fastapi_crudrouter import SQLAlchemyCRUDRouter
-from sqlmodel import Session, select
+from sqlmodel import Session, select, create_engine
 from fastapi.middleware.cors import CORSMiddleware
 
 import warnings
@@ -16,7 +16,7 @@ warnings.filterwarnings("ignore", category=SAWarning)
 
 
 # from .models import MODELS, User, UserCreate, Tag, TagCreate, Post, PostCreate, Comment, CommentCreate, Index, create_all, get_db
-from .models import User, Tag, Post, TaggedPost, Comment, create_all, get_db, Endpointed
+from .models import User, Tag, Post, TaggedPost, Comment, Endpointer
 
 
 app = FastAPI()
@@ -27,10 +27,10 @@ Post.include_endpoints(app)
 TaggedPost.include_endpoints(app)
 Comment.include_endpoints(app)
 
-app.include_router(Endpointed.ROUTER)
+app.include_router(Endpointer.ROUTER)
 
 app.add_middleware(
-    CORSMiddleware,
+   CORSMiddleware,
     allow_origins=["http://localhost:5173"],
     allow_credentials=True,
     allow_methods=['*'],
@@ -38,14 +38,14 @@ app.add_middleware(
 )
 
 
+DB = Path('forum.db')
+ENGINE = create_engine(f'sqlite:///{DB}')
+
+
 @app.on_event("startup")
 def on_startup() -> None:
-    create_all(
-        db=Path('forum.sql'),
-        wipe_old=True,
-        do_seed=True
-    )
-
+    DB.unlink(missing_ok=True)
+    Endpointer.init(ENGINE)
 
 @app.get('/')
 async def root():

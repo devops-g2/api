@@ -6,7 +6,6 @@ from .common import session, add, mkclient
 
 @pytest.fixture()
 def users(session):
-    session = session
     alice = User.Creator(name='Alice', email='alice@example.com', password='123')
     bob = User.Creator(name='Bob', email='bob@example.com', password='456')
     for user in (alice, bob):

@@ -12,23 +12,13 @@ from .utils import query_factory, sort_factory, FILTER, SORT
 
 
 
-DB = Path("forum.dbth")
-engine = create_engine(
-    f"sqlite:///{DB}",
-    echo=True,
-    connect_args={"check_same_thread": False},
-)
-
-SessionLocal = Session(engine)
+# engine = create_engine(
+#     f"sqlite:///{DB}",
+#     echo=True,
+#     connect_args={"check_same_thread": False},
+# )
 
 
-def get_db() -> Generator[Session, None, None]:
-    session = Session(engine)
-    try:
-        yield session
-        session.commit()
-    finally:
-        session.close()
 
 
 def pagination(skip: int = 0, limit: int | None = None) -> dict[str, int | None]:
@@ -65,29 +55,26 @@ class ConfirmationModel(SQLModel):
     ok: bool
 
 
-class Endpointed:
+class Endpointer:
     ROUTER = APIRouter()
 
+    engine = None
 
-    # class Table:
-    #     pass
+    @classmethod
+    def init(cls, engine, do_seed=False):
+        cls.engine = engine
+        SQLModel.metadata.create_all(bind=cls.engine)
+        if do_seed:
+            Endpointer.seed_all_subclasses()
 
-
-    # class Creator:
-    #     pass
-
-
-    # class Updater:
-    #     pass
-
-    # class Reader:
-    #     pass
-
-
-    # @classmethod
-    # def __init_subclass__(cls):
-        # cls.Table = cls.Table
-        # cls.Reader = getattr(cls, 'Reader', cls.Table)
+    @classmethod
+    def get_db(cls) -> Generator[Session, None, None]:
+        session = Session(cls.engine)
+        try:
+            yield session
+            session.commit()
+        finally:
+            session.close()
 
     @classmethod
     def obj_apply(cls, obj, session):
@@ -136,7 +123,7 @@ class Endpointed:
     def create(cls):
         def route(
             *,
-            session: Session = Depends(get_db),
+            session: Session = Depends(cls.get_db),
             obj
         ):
             db_obj = cls.Table.from_orm(obj)
@@ -161,7 +148,7 @@ class Endpointed:
     def get_all(cls):
         def route(
             *,
-            session: Session = Depends(get_db),
+            session: Session = Depends(cls.get_db),
             pagination: Pagination,
             sort_: SORT = sort_factory(cls.Table)
         ):
@@ -172,7 +159,7 @@ class Endpointed:
     def get_one(cls):
         def route(
             *,
-            session: Session = Depends(get_db),
+            session: Session = Depends(cls.get_db),
             obj_id: int,
         ):
             if not (obj := session.get(cls.Table, obj_id)):
@@ -184,7 +171,7 @@ class Endpointed:
     def update(cls):
         def route(
             *,
-            session: Session = Depends(get_db),
+            session: Session = Depends(cls.get_db),
             obj_id: int,
             obj  
         ):
@@ -205,7 +192,7 @@ class Endpointed:
     def delete(cls):
         def route(
             *,
-            session: Session = Depends(get_db),
+            session: Session = Depends(cls.get_db),
             obj_id: int
         ):
             if not (obj := session.get(cls.Table, obj_id)):
@@ -269,7 +256,7 @@ class Endpointed:
 
     @staticmethod
     def include_all_subclass_endpoints(app):
-        for subclass in Endpointed.__subclasses__():
+        for subclass in Endpointer.__subclasses__():
             subclass.include_endpoints(app)
 
     @classmethod
@@ -284,11 +271,11 @@ class Endpointed:
 
     @staticmethod
     def seed_all_subclasses():
-        for subclass in Endpointed.__subclasses__():
+        for subclass in Endpointer.__subclasses__():
             subclass.seed()
 
 
-class User(Endpointed):
+class User(Endpointer):
     PREFIX = 'users'
 
     SEED_OBJS = (
@@ -314,7 +301,7 @@ class User(Endpointed):
         password: str | None = None
 
 
-class TaggedPost(Endpointed):
+class TaggedPost(Endpointer):
     PREFIX = 'tagged_posts'
 
     SEED_OBJS = (
@@ -336,7 +323,7 @@ class TaggedPost(Endpointed):
         post_id: int | None = None
 
 
-class Tag(Endpointed):
+class Tag(Endpointer):
     PREFIX = 'tags'
 
     SEED_OBJS = (
@@ -356,7 +343,7 @@ class Tag(Endpointed):
         name: str | None = None
 
 
-class Post(Endpointed):
+class Post(Endpointer):
     PREFIX = 'posts'
 
     SEED_OBJS = (
@@ -443,7 +430,7 @@ class Post(Endpointed):
     def get_all(cls):
         def route(
             *,
-            session: Session = Depends(get_db),
+            session: Session = Depends(cls.get_db),
             pagination: Pagination,
             sort_: SORT = sort_factory(cls.Table),
             name: str | None = None,
@@ -468,7 +455,7 @@ class Post(Endpointed):
             )
         return route
 
-class Comment(Endpointed):
+class Comment(Endpointer):
     PREFIX = 'comments'
 
     SEED_OBJS = ()
@@ -537,16 +524,6 @@ class Comment(Endpointed):
 #     )
 
 
-
-def create_all(db, wipe_old=False, do_seed=False):
-    if wipe_old:
-        db.unlink(missing_ok=True)
-    engine = create_engine(f'sqlite:///{db}'),
-    SQLModel.metadata.create_all(bind=engine)
-    if do_seed:
-        Endpointed.seed_all_subclasses()
-        # seed()
-    return engine
 
 # print(User.Table.__fields__)
 # print(dir(Post.Creator))
