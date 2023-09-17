@@ -1,10 +1,5 @@
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
+from .common import client, session
 
-from api import app
-
-
-client = TestClient(app)
 
 def test_root_working():
     r = client.get('/')

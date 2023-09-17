@@ -40,7 +40,11 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup() -> None:
-    create_all(wipe_old=True, do_seed=True)
+    create_all(
+        db=Path('forum.sql'),
+        wipe_old=True,
+        do_seed=True
+    )
 
 
 @app.get('/')

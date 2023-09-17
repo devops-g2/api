@@ -12,7 +12,7 @@ from .utils import query_factory, sort_factory, FILTER, SORT
 
 
 
-DB = Path("forum.db")
+DB = Path("forum.dbth")
 engine = create_engine(
     f"sqlite:///{DB}",
     echo=True,
@@ -536,23 +536,22 @@ class Comment(Endpointed):
 #         ),
 #     )
 
-# print(CommentModel.get_all())
 
 
-def create_all(*, wipe_old: bool = False, do_seed: bool = False) -> None:
+def create_all(db, wipe_old=False, do_seed=False):
     if wipe_old:
-        DB.unlink(missing_ok=True)
+        db.unlink(missing_ok=True)
+    engine = create_engine(f'sqlite:///{db}'),
     SQLModel.metadata.create_all(bind=engine)
     if do_seed:
         Endpointed.seed_all_subclasses()
         # seed()
+    return engine
 
-print(User.get_filter_query())
 # print(User.Table.__fields__)
 # print(dir(Post.Creator))
 # print(Post.Creator.schema())
 # print(Post.Reader.__signature__)
-print(dir(Post.Reader))
 # Post.Reader.__name__ = 'Post.Reader'
 # print(Post.Reader.__dict__)
 # print(Post.Reader.__fields__)
