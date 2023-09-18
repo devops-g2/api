@@ -1,51 +1,39 @@
 from __future__ import annotations
-from enum import Enum
 
 import inspect
 import warnings
-import sqlalchemy
-from sqlalchemy.sql.schema import Table as SQLAlchemyTable
 from datetime import datetime  # noqa: TCH003
-from types import NotImplementedType
 from typing import (
     TYPE_CHECKING,
     Annotated,
-    Generator,
-    Type,
     Any,
-    Protocol,
-    Protocol,
-    ClassVar,
-    TypeVar,
-    get_args,
     Callable,
-    Sequence,
-    no_type_check,
+    ClassVar,
+    Generator,
+    Protocol,
+    TypeVar,
 )
-from sqlalchemy.orm.decl_base import _DeclMappedClassProtocol
-from mypy_extensions import DefaultNamedArg, NamedArg
 
-# from sqlalchemy import func
-
+import sqlalchemy
 from fastapi import APIRouter, Depends, FastAPI, HTTPException
 from sqlalchemy.exc import SAWarning
 from sqlmodel import (
-    func,
     Field,
     Session,
     SQLModel,
+    func,
     select,
-    # SQLModelMetaclass
 )
-from sqlmodel.main import SQLModelMetaclass
-from sqlmodel.sql.expression import SelectOfScalar
-from sqlmodel.sql.expression import _TModel_0, _TSelect
 
-
+# SQLModelMetaclass
 from .utils import SORT, sort_factory
 
 if TYPE_CHECKING:
+    from enum import Enum
+
+    from mypy_extensions import DefaultNamedArg, NamedArg
     from sqlalchemy.future import Engine as SQLAlchemyEngine
+    from sqlmodel.sql.expression import SelectOfScalar
 
 warnings.filterwarnings("ignore", category=SAWarning)
 
@@ -58,12 +46,17 @@ Pagination = Annotated[dict[str, int | None], Depends(pagination)]
 
 
 class ElemNotFoundException(HTTPException):
+    status_code = 404
     def __init__(self: ElemNotFoundException, elem: str, n: int) -> None:
         self.elem = elem
         self.n = n
 
     def __str__(self: ElemNotFoundException) -> str:
         return f"{self.elem} #{self.n} not found"
+
+    @property
+    def detail(self):
+        return str(self)
 
 
 ID_FIELD = Field(primary_key=True, index=True, default=None)
@@ -104,14 +97,14 @@ class Endpointer(Protocol):
         pass
 
     @classmethod
-    def endpointed_init(cls: Type[Endpointer], app: FastAPI) -> None:
+    def endpointed_init(cls: type[Endpointer], app: FastAPI) -> None:
         raise NotImplementedError
 
     @classmethod
-    def init_app(cls: Type[Endpointer], app: FastAPI) -> None:
+    def init_app(cls: type[Endpointer], app: FastAPI) -> None:
         cf = inspect.currentframe()
         if not cf:
-            raise RuntimeError()
+            raise RuntimeError
         f_name_of_myself = cf.f_code.co_name
         my_f = getattr(cls, f_name_of_myself)
         my_f_path = my_f.__qualname__
@@ -120,12 +113,12 @@ class Endpointer(Protocol):
             for subclass in cls.__subclasses__():
                 subclass.include_endpoints(app)
             app.include_router(cls.ROUTER)
-        else:  # is inheriting subclass
+        else:                                    # is inheriting subclass
             cls.endpointed_init(app)
 
     @classmethod
     def init(
-        cls: Type[Endpointer],
+        cls: type[Endpointer],
         engine: SQLAlchemyEngine,
         *,
         do_seed: bool = False,
@@ -137,7 +130,7 @@ class Endpointer(Protocol):
                 subclass.seed()
 
     @classmethod
-    def get_db(cls: Type[Endpointer]) -> Generator[Session, None, None]:
+    def get_db(cls: type[Endpointer]) -> Generator[Session, None, None]:
         session = Session(cls.engine)
         try:
             yield session
@@ -150,33 +143,28 @@ class Endpointer(Protocol):
         return obj
 
     @classmethod
-    def get_tags(cls: Type[Endpointer]) -> list[str | Enum]:
+    def get_tags(cls: type[Endpointer]) -> list[str | Enum]:
         return [cls.prefix.replace("_", " ")]
 
     @classmethod
-    def get_pk(cls: Type[Endpointer]) -> Any:
+    def get_pk(cls: type[Endpointer]) -> Any:
         return cls.Table.__table__.primary_key.columns.keys()[0]  # type: ignore
 
-    Tb = TypeVar("Tb", bound=Table)
 
     @classmethod
-    def select(cls: Type[Endpointer]) -> SelectOfScalar[Table]:
-        # print(get_ar(type(select(cls.Table))))
-        # print(type(select(cls.Table)).__parameters__)
-        # print(type(select(cls.Table)))
+    def select(cls: type[Endpointer]) -> SelectOfScalar[Table]:
         return select(cls.Table)
 
-    # select.__annotations__['return'] = SelectOfScalar[Table]
 
     @classmethod
     def query_apply(
-        cls, query: SelectOfScalar[Table], *args: Any, **kwargs: Any
+        cls, query: SelectOfScalar[Table], *args: Any, **kwargs: Any,
     ) -> SelectOfScalar[Table]:
         return query
 
     @classmethod
     def paginate(
-        cls, query: SelectOfScalar[Table], pagination: Pagination
+        cls, query: SelectOfScalar[Table], pagination: Pagination,
     ) -> SelectOfScalar[Table]:
         return query.offset(pagination["skip"]).limit(pagination["limit"])
 
@@ -193,7 +181,7 @@ class Endpointer(Protocol):
         cls,
     ) -> Callable[[DefaultNamedArg(Session, "session"), NamedArg(Any, "obj")], Table]:
         def route(
-            *, session: Session = Depends(cls.get_db), obj: Endpointer.Creator
+            *, session: Session = Depends(cls.get_db), obj: Endpointer.Creator,
         ) -> Endpointer.Table:
             db_obj = cls.Table.model_validate(obj)
             session.add(db_obj)
@@ -245,7 +233,7 @@ class Endpointer(Protocol):
     def get_one(
         cls,
     ) -> Callable[
-        [DefaultNamedArg(Session, "session"), NamedArg(int, "obj_id")], Table
+        [DefaultNamedArg(Session, "session"), NamedArg(int, "obj_id")], Table,
     ]:
         def route(
             *,
@@ -278,7 +266,7 @@ class Endpointer(Protocol):
             if not (db_obj := session.get(cls.Table, obj_id)):
                 raise ElemNotFoundException(cls.__name__, obj_id)
 
-            obj_data = obj.dict(exclude_unset=True)
+            obj_data = obj.model_dump(exclude_unset=True)
             for key, value in obj_data.items():
                 setattr(db_obj, key, value)
             session.add(db_obj)
@@ -293,10 +281,10 @@ class Endpointer(Protocol):
     def delete(
         cls,
     ) -> Callable[
-        [DefaultNamedArg(Session, "session"), NamedArg(int, "obj_id")], dict[str, bool]
+        [DefaultNamedArg(Session, "session"), NamedArg(int, "obj_id")], dict[str, bool],
     ]:
         def route(
-            *, session: Session = Depends(cls.get_db), obj_id: int
+            *, session: Session = Depends(cls.get_db), obj_id: int,
         ) -> dict[str, bool]:
             if not (obj := session.get(cls.Table, obj_id)):
                 raise ElemNotFoundException(cls.__name__, obj_id)
@@ -315,6 +303,7 @@ class Endpointer(Protocol):
             methods=["POST"],
             path=f"/{cls.prefix}",
             endpoint=cls.create(),
+            response_model=getattr(cls, "Reader", cls.Table),  # type: ignore
             tags=tags,
             name=f"Create a {cls.__name__.lower()}",
         )
@@ -360,7 +349,7 @@ class Endpointer(Protocol):
         )
 
     @classmethod
-    def seed(cls: Type[Endpointer]) -> None:
+    def seed(cls: type[Endpointer]) -> None:
         with Session(cls.engine) as session:
             for obj in cls.SEED_OBJS:
                 create_obj = cls.Creator(**obj)
@@ -412,6 +401,116 @@ class TaggedPost(Endpointer):
     class Updater(SQLModel):
         tag_id: int | None = None
         post_id: int | None = None
+
+
+    @classmethod
+    def query_apply(  # type: ignore[override]
+        cls,
+        query: Any,
+        tag_id: int | None = None,
+        post_id: int | None = None,
+    ) -> Any:
+        if tag_id:
+            query = query.where(cls.Table.tag_id == tag_id)
+        if post_id:
+            query = query.where(cls.Table.post_id == post_id)
+        return query
+
+
+    @classmethod
+    def get_all(
+        cls,
+    ) -> Callable[
+        [
+            DefaultNamedArg(Session, "session"),
+            NamedArg(dict[str, int | None], "pagination"),
+            DefaultNamedArg(dict[str, str], "sort_"),
+        ],
+        list[Endpointer.Table],
+    ]:
+        def route(
+            *,
+            session: Session = Depends(cls.get_db),
+            pagination: Pagination,
+            sort_: SORT = sort_factory(cls.Table),
+            tag_id: int | None = None,
+            post_id: int | None = None,
+        ) -> list[Endpointer.Table]:
+            return cls._do_get_all(
+                session,
+                pagination,
+                sort_,
+                tag_id=tag_id,
+                post_id=post_id
+            )
+
+        return route
+
+
+    @classmethod
+    def delete(
+        cls,
+    ) -> Callable[
+        [
+            DefaultNamedArg(Session, "session"),
+            NamedArg(dict[str, int | None], "pagination"),
+            DefaultNamedArg(dict[str, str], "sort_"),
+        ],
+        ConfirmationModel,
+    ]:
+        def route(
+            *,
+            session: Session = Depends(cls.get_db),
+            tag_id: int,
+            post_id: int,
+        ) -> ConfirmationModel:
+            tagged_post = session.exec(
+                cls.select()
+                .where(
+                    cls.Table.tag_id == tag_id,
+                    cls.Table.post_id == post_id
+                )
+            ).first()
+            if not tagged_post:
+                raise HTTPException(status_code=404, detail=f'Tagged post with {tag_id=} and {post_id=} not found.')
+            session.delete(tagged_post)
+            session.commit()
+            return {'ok': True}
+        return route
+
+    @classmethod
+    def include_endpoints(cls, app: FastAPI) -> None:
+        tags: list[str | Enum] = cls.get_tags()
+
+        # create
+        cls.ROUTER.add_api_route(
+            methods=["POST"],
+            path=f"/{cls.prefix}",
+            endpoint=cls.create(),
+            response_model=getattr(cls, "Reader", cls.Table),  # type: ignore
+            tags=tags,
+            name=f"Create a {cls.__name__.lower()}",
+        )
+
+        # many
+        cls.ROUTER.add_api_route(
+            methods=["GET"],
+            path=f"/{cls.prefix}",
+            endpoint=cls.get_all(),
+            response_model=list[getattr(cls, "Reader", cls.Table)],  # type: ignore
+            tags=tags,
+            name=f"Get all {tags[0]}",
+        )
+
+        # delete
+        cls.ROUTER.add_api_route(
+            methods=["DELETE"],
+            path=f"/{cls.prefix}",
+            endpoint=cls.delete(),
+            response_model=ConfirmationModel,
+            tags=tags,
+            name=f"Delete a {cls.__name__.lower()}",
+        )
 
 
 class Tag(Endpointer):
@@ -466,13 +565,11 @@ class Post(Endpointer):
         if type(obj) is sqlalchemy.engine.row.Row:
             obj = obj[0]
         tagged_posts = session.exec(
-            select(TaggedPost.Table).where(TaggedPost.Table.post_id == obj.id)  # type: ignore
+            select(TaggedPost.Table).where(TaggedPost.Table.post_id == obj.id),  # type: ignore
         ).all()
         tags = [
             session.get(Tag.Table, tagged_post.tag_id) for tagged_post in tagged_posts
         ]
-        # new_obj = obj.tags = tags
-        # return new_obj
         return obj.copy(update={"tags": tags})  # type: ignore
 
     @classmethod
@@ -510,7 +607,6 @@ class Post(Endpointer):
             query = query.where(cls.Table.updated_at > earliest_updated)  # type: ignore[operator]
         if latest_updated:
             query = query.where(cls.Table.updated_at < earliest_updated)  # type: ignore[operator]
-        # query = query.select(cls.Table.id, cls.Table.content, cls.Table.name)
         return query
 
     @classmethod

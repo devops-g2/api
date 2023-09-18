@@ -8,23 +8,19 @@ import requests
 
 @pytest.fixture()
 def path():
-    return '/users'
+    return '/tags'
 
 @pytest.fixture()
 def obj_1():
     obj_1 = {
-        'name': 'Alice',
-        'email': 'alice@example.com', 
-        'password': 'alice_password'
+        'name': 'Art',
     }
     return obj_1
 
 @pytest.fixture()
 def obj_2():
     obj_2 = {
-        'name': 'Bob',
-        'email': 'bob@example.com',
-        'password': 'bob_password'
+        'name': 'Big Data',
     }
     return obj_2
 

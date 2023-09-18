@@ -24,7 +24,7 @@ def query_factory(schema: Type[T]) -> Any:
     args_str = ", ".join(
         [
             _str.format(name, FILTER_MAPPING[field.type_.__name__].__name__)
-            for name, field in schema.__fields__.items()  # type: ignore
+            for name, field in schema.model_fields.items()  # type: ignore
             if field.type_.__name__ in FILTER_MAPPING
         ],
     )
@@ -33,7 +33,7 @@ def query_factory(schema: Type[T]) -> Any:
     return_str = ", ".join(
         [
             _str.format(name, field.name)
-            for name, field in schema.__fields__.items()  # type: ignore
+            for name, field in schema.model_fields.items()  # type: ignore
             if field.type_.__name__ in FILTER_MAPPING
         ],
     )
@@ -49,7 +49,7 @@ def filter_func({args_str}) -> FILTER:
 
 
 def sort_factory(schema: Type[T]) -> Any:
-    fields = [field.title for field in schema.__fields__.values()]  # type: ignore
+    fields = [field.title for field in schema.model_fields.values()]  # type: ignore
 
     def sort_func(
         sort_: str = Query(None, alias="sort", enum=fields),
