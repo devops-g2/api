@@ -24,7 +24,7 @@ app.add_middleware(
 DB = Path("forum.db")
 
 # prod
-ENGINE = create_engine(f"sqlite:///{DB}")
+ENGINE = create_engine(f"sqlite:///{DB}", echo=True)
 
 # echo SQL statements sent; useful for debugging
 
@@ -32,7 +32,7 @@ ENGINE = create_engine(f"sqlite:///{DB}")
 @app.on_event("startup")
 def on_startup() -> None:
     DB.unlink(missing_ok=True)
-    Endpointer.init(ENGINE, do_seed=True)
+    Endpointer.init(ENGINE, do_seed=False)
 
 
 @app.get("/")

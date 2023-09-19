@@ -184,7 +184,7 @@ class Endpointer(Protocol):
         def route(
             *, session: Session = Depends(cls.get_db), obj: Endpointer.Creator,
         ) -> Endpointer.Table:
-            db_obj = cls.Table.model_validate(obj)
+            db_obj = cls.Table.from_orm(obj)
             session.add(db_obj)
             session.commit()
             session.refresh(db_obj)
@@ -203,7 +203,7 @@ class Endpointer(Protocol):
         **kwargs: Any,
     ):
         query = cls.select()
-        query = cls.query_apply(query, *args, **kwargs)
+        query = cls.query_apply(query, session=session, *args, **kwargs)
         query = cls.sort(query, sort_)
         query = cls.paginate(query, pagination)
         objs = session.exec(query).all()
@@ -351,13 +351,14 @@ class Endpointer(Protocol):
                 session.add(db_obj)
                 session.commit()
                 session.refresh(db_obj)
+                # session.delete(db_obj)
+                # session.commit()
 
 
 class User(Endpointer):
     prefix = "users"
 
     SEED_OBJS = ({"name": "User1", "email": "foo@bar.com", "password": "12345"},)
-    # SEED_OBJS = ()
 
     class Table(SQLModel, table=True):
         __tablename__ = "user"
@@ -381,8 +382,7 @@ class User(Endpointer):
 class TaggedPost(Endpointer):
     prefix = "tagged_posts"
 
-    # SEED_OBJS = ({"tag_id": 1, "post_id": 1},)
-    SEED_OBJS = ()
+    SEED_OBJS = ({"tag_id": 1, "post_id": 1},)
 
     class Table(SQLModel, table=True):
         __tablename__ = "tagged_post"
@@ -584,6 +584,8 @@ class Post(Endpointer):
     def query_apply(  # type: ignore[override]
         cls,
         query,
+        *,
+        session: Session,
         name: str | None = None,
         author: int | None = None,
         tags: str | None = None,
@@ -594,7 +596,13 @@ class Post(Endpointer):
     ):
         # return query
         # # ignore passed in query, use our own
-        query = select(cls.Table, TaggedPost.Table, User.Table)
+        other_tables = (TaggedPost.Table, User.Table)
+        non_empty_other_tables = [
+            session.exec(select(table)).first() is not None
+            for table in other_tables
+        ]
+        query = select(cls.Table, *non_empty_other_tables)
+        # print(name, author, tags, earliest_created, earliest_updated, latest_created, latest_updated)
         if name:
             query = query.where(cls.Table.name == name)
         if author:
@@ -616,6 +624,7 @@ class Post(Endpointer):
             query = query.where(cls.Table.updated_at > earliest_updated)  # type: ignore[operator]
         if latest_updated:
             query = query.where(cls.Table.updated_at < earliest_updated)  # type: ignore[operator]
+        print(query)
         return query
 
     @classmethod

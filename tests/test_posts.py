@@ -3,7 +3,7 @@ from sqlmodel import Session
 
 
 # from .test_users import obj_1 as alice, obj_2 as bob, created_objs as created_users, path as user_path, objs as user_objs
-# from .common import mkclient, session
+from .common import mkclient, session
 import requests
 
             
@@ -63,6 +63,6 @@ if __name__ == '__main__':
     }
     endpoint = 'http://127.0.0.1:8000/posts'
     requests.post(endpoint, json=myobj)
-    print(requests.get(endpoint).json())
+    print(requests.get(f'{endpoint}?author=1').json())
 
     
