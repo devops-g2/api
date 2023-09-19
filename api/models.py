@@ -62,8 +62,9 @@ class ElemNotFoundException(HTTPException):
 ID_FIELD = Field(primary_key=True, index=True, default=None)
 
 USER_ID_FIELD = Field(foreign_key="user.id")
-TAG_ID_FIELD = Field(foreign_key="tag.id", primary_key=True)
-POST_ID_FIELD = Field(foreign_key="post.id", primary_key=True)
+TAG_ID_PRIMARY_FIELD = Field(foreign_key="tag.id", primary_key=True)
+POST_ID_PRIMARY_FIELD = Field(foreign_key="post.id", primary_key=True)
+POST_ID_FIELD = Field(foreign_key='post.id')
 
 CREATED_AT_FIELD = Field(default=None, sa_column_kwargs={"default": func.now()})
 UPDATED_AT_FIELD = Field(
@@ -384,8 +385,8 @@ class TaggedPost(Endpointer):
     class Table(SQLModel, table=True):
         __tablename__ = "tagged_post"
 
-        tag_id: int | None = TAG_ID_FIELD
-        post_id: int | None = POST_ID_FIELD
+        tag_id: int | None = TAG_ID_PRIMARY_FIELD
+        post_id: int | None = POST_ID_PRIMARY_FIELD
 
     class Creator(SQLModel):
         tag_id: int
@@ -666,6 +667,7 @@ class Comment(Endpointer):
         id: int | None = ID_FIELD
         name: str | None
         content: str | None
+        post_id: int | None = POST_ID_FIELD
         author: int | None = USER_ID_FIELD
         created_at: datetime | None = CREATED_AT_FIELD
         updated_at: datetime | None = UPDATED_AT_FIELD
@@ -674,8 +676,10 @@ class Comment(Endpointer):
         name: str
         content: str
         author: int
+        post_id: int
 
     class Updater(SQLModel):
         name: str | None = None
         content: str | None = None
         author: int | None = None
+
