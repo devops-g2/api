@@ -66,65 +66,6 @@ def test_create_and_read_many(created_objs, path, objs):
 
 def test_create_and_update(created_objs, obj_1, path, has_added_readonly_stuff):
     obj_n = 1
-Commands
-￼
-￼
-Files
-￼
-￼
-￼
-main.sql
-￼
-Tools
-￼
-Ghostwriter
-￼
-Deployments
-￼
-Chat
-￼
-Code Search
-￼
-Console
-￼
-Database
-￼
-Docs
-￼
-Extensions
-￼
-Git
-￼
-Markdown
-￼
-PostgreSQL
-￼
-Secrets
-￼
-Settings
-￼
-Shell
-￼
-Threads
-￼
-CPU
-￼
-RAM
-￼
-Storage
-0 MiB
-￼
-￼
-￼
-￼
-Try Ghostwriter
-￼
-￼
-Help
-￼
-main.sql
-￼
-￼
     patched_obj_1 = obj_1 | {'name': 'Not Alice'}
     patch_r = mkclient().patch(f'{path}/{obj_n}', json=patched_obj_1)
     assert patch_r.status_code == 200

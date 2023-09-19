@@ -184,7 +184,7 @@ class Endpointer(Protocol):
         def route(
             *, session: Session = Depends(cls.get_db), obj: Endpointer.Creator,
         ) -> Endpointer.Table:
-            db_obj = cls.Table.from_orm(obj)
+            db_obj = cls.Table.model_validate(obj)
             session.add(db_obj)
             session.commit()
             session.refresh(db_obj)
