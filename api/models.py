@@ -200,7 +200,7 @@ class Endpointer(Protocol):
         sort_: SORT,
         *args: Any,
         **kwargs: Any,
-    ) -> list[Table]:
+    ):
         query = cls.select()
         query = cls.query_apply(query, *args, **kwargs)
         query = cls.sort(query, sort_)
@@ -211,20 +211,13 @@ class Endpointer(Protocol):
     @classmethod
     def get_all(
         cls,
-    ) -> Callable[
-        [
-            DefaultNamedArg(Session, "session"),
-            NamedArg(dict[str, int | None], "pagination"),
-            DefaultNamedArg(dict[str, str], "sort_"),
-        ],
-        list[Table],
-    ]:
+    ):
         def route(
             *,
             session: Session = Depends(cls.get_db),
             pagination: Pagination,
             sort_: SORT = sort_factory(cls.Table),
-        ) -> list[Endpointer.Table]:
+        ):
             return cls._do_get_all(session=session, pagination=pagination, sort_=sort_)
 
         return route
@@ -558,24 +551,36 @@ class Post(Endpointer):
         author: int | None = None
 
     class Reader(Base):
-        tags: list[Tag.Table] | None
+        tags: list[Tag.Table] = []
 
     @classmethod
     def obj_apply(cls, obj: Table | sqlalchemy.engine.row.Row[tuple[Table]], session: Session) -> Reader:  # type: ignore[override]
+        print(obj)
+        print(type(obj))
         if type(obj) is sqlalchemy.engine.row.Row:
+            print('hello')
             obj = obj[0]
+        else:
+            print('no')
         tagged_posts = session.exec(
             select(TaggedPost.Table).where(TaggedPost.Table.post_id == obj.id),  # type: ignore
         ).all()
+        print('x', tagged_posts)
         tags = [
             session.get(Tag.Table, tagged_post.tag_id) for tagged_post in tagged_posts
         ]
-        return obj.copy(update={"tags": tags})  # type: ignore
+        reader_obj = cls.Reader(name=None, content=None, author=None)
+        for field in obj.model_fields:
+            setattr(reader_obj, field, getattr(obj, field))
+        reader_obj.tags = tags
+        return reader_obj
+
+    T = TypeVar('T')
 
     @classmethod
     def query_apply(  # type: ignore[override]
         cls,
-        query: Any,
+        query,
         name: str | None = None,
         author: int | None = None,
         tags: str | None = None,
@@ -583,8 +588,9 @@ class Post(Endpointer):
         latest_created: datetime | None = None,
         earliest_updated: datetime | None = None,
         latest_updated: datetime | None = None,
-    ) -> Any:
-        # ignore passed in query, use our own
+    ):
+        # return query
+        # # ignore passed in query, use our own
         query = select(cls.Table, TaggedPost.Table, User.Table)
         if name:
             query = query.where(cls.Table.name == name)
@@ -595,7 +601,7 @@ class Post(Endpointer):
             for tag in tag_ids:
                 query = query.where(
                     TaggedPost.Table.post_id == cls.Table.id,
-                    TaggedPost.Table.tag_id == int(tag),
+                    TaggedPost.Table.tag_id == int(tag)
                 )
 
         # TODO check that this actually filters correctly
@@ -632,11 +638,11 @@ class Post(Endpointer):
             latest_created: datetime | None = None,
             earliest_updated: datetime | None = None,
             latest_updated: datetime | None = None,
-        ) -> list[Endpointer.Table]:
+        ) -> list[Post.Reader]:
             return cls._do_get_all(
-                session,
-                pagination,
-                sort_,
+                session=session,
+                pagination=pagination,
+                sort_=sort_,
                 name=name,
                 author=author,
                 tags=tags,

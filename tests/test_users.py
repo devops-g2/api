@@ -14,7 +14,7 @@ def path():
 def obj_1():
     obj_1 = {
         'name': 'Alice',
-        'email': 'alice@example.com', 
+        'email': 'alice@example.com',
         'password': 'alice_password'
     }
     return obj_1
@@ -28,6 +28,3 @@ def obj_2():
     }
     return obj_2
 
-@pytest.fixture()
-def objs(obj_1, obj_2):
-    return obj_1, obj_2

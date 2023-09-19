@@ -23,7 +23,3 @@ def obj_2():
         'name': 'Big Data',
     }
     return obj_2
-
-@pytest.fixture()
-def objs(obj_1, obj_2):
-    return obj_1, obj_2
