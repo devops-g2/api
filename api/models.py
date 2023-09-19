@@ -683,3 +683,40 @@ class Comment(Endpointer):
         content: str | None = None
         author: int | None = None
 
+    @classmethod
+    def query_apply(  # type: ignore[override]
+        cls,
+        query: Any,
+        post_id: int | None = None,
+    ) -> Any:
+        if post_id:
+            query = query.where(cls.Table.post_id == post_id)
+        return query
+
+
+    @classmethod
+    def get_all(
+        cls,
+    ) -> Callable[
+        [
+            DefaultNamedArg(Session, "session"),
+            NamedArg(dict[str, int | None], "pagination"),
+            DefaultNamedArg(dict[str, str], "sort_"),
+        ],
+        list[Endpointer.Table],
+    ]:
+        def route(
+            *,
+            session: Session = Depends(cls.get_db),
+            pagination: Pagination,
+            sort_: SORT = sort_factory(cls.Table),
+            post_id: int | None = None,
+        ) -> list[Endpointer.Table]:
+            return cls._do_get_all(
+                session,
+                pagination,
+                sort_,
+                post_id=post_id,
+            )
+
+        return route
