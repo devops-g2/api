@@ -357,6 +357,7 @@ class User(Endpointer):
     prefix = "users"
 
     SEED_OBJS = ({"name": "User1", "email": "foo@bar.com", "password": "12345"},)
+    # SEED_OBJS = ()
 
     class Table(SQLModel, table=True):
         __tablename__ = "user"
@@ -380,7 +381,8 @@ class User(Endpointer):
 class TaggedPost(Endpointer):
     prefix = "tagged_posts"
 
-    SEED_OBJS = ({"tag_id": 1, "post_id": 1},)
+    # SEED_OBJS = ({"tag_id": 1, "post_id": 1},)
+    SEED_OBJS = ()
 
     class Table(SQLModel, table=True):
         __tablename__ = "tagged_post"
@@ -665,7 +667,6 @@ class Comment(Endpointer):
         __tablename__ = "comment"
 
         id: int | None = ID_FIELD
-        name: str | None
         content: str | None
         post_id: int | None = POST_ID_FIELD
         author: int | None = USER_ID_FIELD
@@ -673,13 +674,11 @@ class Comment(Endpointer):
         updated_at: datetime | None = UPDATED_AT_FIELD
 
     class Creator(SQLModel):
-        name: str
         content: str
         author: int
         post_id: int
 
     class Updater(SQLModel):
-        name: str | None = None
         content: str | None = None
         author: int | None = None
 

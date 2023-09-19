@@ -3,8 +3,8 @@ from sqlmodel import Session
 
 
 # from .test_users import obj_1 as alice, obj_2 as bob, created_objs as created_users, path as user_path, objs as user_objs
-from .common import *
-# import requests
+# from .common import mkclient, session
+import requests
 
             
 
@@ -41,3 +41,28 @@ def obj_2():
     }
     return obj_2
 
+
+def test_debug(session: Session):
+    myobj = {
+        'name': 'obj debug',
+        'content': 'obj debug',
+        'author': 1
+    }
+    client = mkclient()
+    post_r = client.post('/posts', json=myobj)
+    print(post_r.json())
+    get_r = client.get('/posts')
+    print(get_r.json())
+
+
+if __name__ == '__main__':
+    myobj = {
+        'name': 'obj debug',
+        'content': 'obj debug',
+        'author': 1
+    }
+    endpoint = 'http://127.0.0.1:8000/posts'
+    requests.post(endpoint, json=myobj)
+    print(requests.get(endpoint).json())
+
+    
