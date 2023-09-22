@@ -200,7 +200,6 @@ class Endpointer(Protocol):
         session: Session,
         pagination: Pagination,
         sort_: SORT,
-        request: Request,
         *args: Any,
         **kwargs: Any,
     ):
@@ -220,8 +219,8 @@ class Endpointer(Protocol):
             *,
             session: Session = Depends(cls.get_db),
             pagination: Pagination,
-            sort_: SORT = sort_factory(cls.Table),
-        ):
+            sort_: SORT = sort_factory(cls.Table)
+            ):
             return cls._do_get_all(session=session, pagination=pagination, sort_=sort_)
 
         return route
