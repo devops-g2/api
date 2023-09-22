@@ -24,7 +24,6 @@ from sqlmodel import (
     func,
     select,
 )
-from fastapi import Request
 
 # SQLModelMetaclass
 from .utils import SORT, sort_factory
@@ -208,7 +207,6 @@ class Endpointer(Protocol):
         query = cls.sort(query, sort_)
         query = cls.paginate(query, pagination)
         objs = session.exec(query).all()
-        print(request.client.host)
         return [cls.obj_apply(obj, session) for obj in objs]
 
     @classmethod
