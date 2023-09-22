@@ -403,6 +403,7 @@ class TaggedPost(Endpointer):
     def query_apply(  # type: ignore[override]
         cls,
         query: Any,
+        session: Session,
         tag_id: int | None = None,
         post_id: int | None = None,
     ) -> Any:
@@ -695,6 +696,7 @@ class Comment(Endpointer):
     def query_apply(  # type: ignore[override]
         cls,
         query: Any,
+        session: Session,
         post_id: int | None = None,
     ) -> Any:
         if post_id:

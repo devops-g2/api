@@ -23,3 +23,11 @@ def obj_2():
         'name': 'Big Data',
     }
     return obj_2
+
+@pytest.fixture()
+def patched_obj_1():
+    patched_obj_1 = {
+        'name': 'Tra'
+    }
+    return patched_obj_1
+

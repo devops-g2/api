@@ -28,10 +28,14 @@ def created_objs(session: Session, path, objs):
     for obj in objs:
         mkclient().post(path, json=obj)
 
+
 @pytest.fixture()
 def has_added_readonly_stuff():
     def has_added_readonly_stuff(data, obj, id=1, **kwargs):
-        return data == obj | {'id': id}
+        if id:
+            return data == obj | {'id': id}
+        else:
+            return data == obj | kwargs
     return has_added_readonly_stuff
 
 
@@ -58,15 +62,14 @@ def test_create_and_read_many(created_objs, path, objs):
     r = mkclient().get(path)
     assert r.status_code == 200
     data = r.json()
-    print(data)
-    print(len(data), len(objs))
     assert len(data) == len(objs)
-    assert data[1]['id'] == 2
+    if 'id' in data[1]:
+        assert data[1]['id'] == 2
 
 
-def test_create_and_update(created_objs, obj_1, path, has_added_readonly_stuff):
+def test_create_and_update(created_objs, obj_1, patched_obj_1, path, has_added_readonly_stuff):
     obj_n = 1
-    patched_obj_1 = obj_1 | {'name': 'Not Alice'}
+    patched_obj_1 = obj_1 | patched_obj_1
     patch_r = mkclient().patch(f'{path}/{obj_n}', json=patched_obj_1)
     assert patch_r.status_code == 200
     assert has_added_readonly_stuff(patch_r.json(), patched_obj_1)

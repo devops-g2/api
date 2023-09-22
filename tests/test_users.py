@@ -28,3 +28,12 @@ def obj_2():
     }
     return obj_2
 
+
+@pytest.fixture()
+def patched_obj_1():
+    patched_obj_1 = {
+        'name': 'Not Alice'
+    }
+    return patched_obj_1
+
+
