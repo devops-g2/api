@@ -93,3 +93,37 @@ def test_create_and_delete(created_objs, path):
     get_r = mkclient().delete(f"{path}/{obj_n}")
     assert get_r.status_code == 404
     assert len(mkclient().get(path).json()) == 1
+
+
+def test_skip(created_objs, path):
+    client = mkclient()
+    skip_0 = client.get(path + '?skip=0')
+    skip_1 = client.get(path + '?skip=1')
+    skip_2 = client.get(path + '?skip=2')
+    assert len(skip_0.json()) == 2
+    assert len(skip_1.json()) == 1
+    assert len(skip_2.json()) == 0
+
+
+def test_limit(created_objs, path):
+    client = mkclient()
+    limit_0 = client.get(path + '?limit=0')
+    limit_1 = client.get(path + '?limit=1')
+    limit_2 = client.get(path + '?limit=2')
+    assert len(limit_0.json()) == 0
+    assert len(limit_1.json()) == 1
+    assert len(limit_2.json()) == 2
+
+
+def test_skip_and_limit(created_objs, path, obj_1, obj_2):
+    # or clause is for crosstables (they have no id pkey)
+    client = mkclient()
+    no_skip_limit_1 = client.get(path + '?skip=0&limit=1')
+    assert len(no_skip_limit_1.json()) == 1
+    assert no_skip_limit_1.json()[0].get('id') == 1 or no_skip_limit_1.json()[0] == obj_1
+    no_limit_skip_1 = client.get(path + '?limit=2&skip=1')
+    assert len(no_limit_skip_1.json()) == 1
+    assert no_limit_skip_1.json()[0].get('id') == 2 or no_limit_skip_1.json()[0] == obj_2
+
+    
+    
