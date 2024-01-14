@@ -1,5 +1,6 @@
 import pytest
 
+from .common import *
 
 @pytest.fixture()
 def path():
