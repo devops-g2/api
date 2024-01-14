@@ -116,14 +116,19 @@ def test_limit(created_objs, path):
 
 
 def test_skip_and_limit(created_objs, path, obj_1, obj_2):
-    # or clause is for crosstables (they have no id pkey)
     client = mkclient()
     no_skip_limit_1 = client.get(path + '?skip=0&limit=1')
     assert len(no_skip_limit_1.json()) == 1
-    assert no_skip_limit_1.json()[0].get('id') == 1 or no_skip_limit_1.json()[0] == obj_1
+    if 'id' in (got := no_skip_limit_1.json()[0]):
+        assert got['id'] == 1
+    else:
+        assert got == obj_1
     no_limit_skip_1 = client.get(path + '?limit=2&skip=1')
     assert len(no_limit_skip_1.json()) == 1
-    assert no_limit_skip_1.json()[0].get('id') == 2 or no_limit_skip_1.json()[0] == obj_2
+    if 'id' in (got := no_limit_skip_1.json()[0]):
+        assert got['id'] == 2
+    else:
+        assert got == obj_2
 
     
     
