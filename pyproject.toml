@@ -12,19 +12,20 @@ uvicorn = "^0.23.2"
 # pydantic = {version = "^2.1", extras=["email"]}
 sqlmodel = { git = "https://github.com/honglei/sqlmodel.git", branch = "main" }
 fastapi = "^0.103.0"
-taskipy = "^1.12.0"
 prometheus-fastapi-instrumentator = "^6.1.0"
 pytest = "^7.4.2"
 httpx = "^0.25.0"
 requests = "^2.31.0"
+click = "^8.1.7"
+poethepoet = "^0.24.4"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.7.0"
 mypy = "^1.5.1"
 ruff = "^0.0.287"
 
-[tool.taskipy.tasks]
-start = "uvicorn api.main:app --host 0.0.0.0 --port 8000"
+[tool.poe.tasks]
+start = "python -m api.main --db-path='forum.db' --db-wipe-on-start --seed"
 
 lint = "ruff . --fix"
 lint_ro = "ruff . --no-fix"
@@ -34,8 +35,8 @@ format_ro = "black . --check"
 
 typecheck = "mypy . --strict"
 
-check = "task format && task lint && task typecheck"
-check_ro = "task format_ro && task lint_ro && task typecheck"
+# check = "task format && task lint && task typecheck"
+# check_ro = "task format_ro && task lint_ro && task typecheck"
 
 [[tool.mypy.overrides]]
 module = "fastapi_crudrouter"
