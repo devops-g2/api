@@ -26,6 +26,7 @@ ruff = "^0.0.287"
 
 [tool.poe.tasks]
 start = "python -m api.main --db-path='forum.db' --db-wipe-on-start --seed"
+docker_start="docker run -it $(docker build -q .)"
 
 lint = "ruff . --fix"
 lint_ro = "ruff . --no-fix"

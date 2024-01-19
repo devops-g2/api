@@ -12,5 +12,6 @@ RUN pip install poetry
 RUN poetry install --no-dev
 
 # Start the server
-CMD ["poetry", "run", "task", "start"]
+ENTRYPOINT poetry run poe start "$@"
+
 
