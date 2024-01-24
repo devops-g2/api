@@ -18,6 +18,8 @@ httpx = "^0.25.0"
 requests = "^2.31.0"
 click = "^8.1.7"
 poethepoet = "^0.24.4"
+inflection = "^0.5.1"
+asyncclick = "^8.1.7.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.7.0"
@@ -25,8 +27,9 @@ mypy = "^1.5.1"
 ruff = "^0.0.287"
 
 [tool.poe.tasks]
-start = "python -m api.main --db-path='forum.db' --db-wipe-on-start --seed"
-docker_start="docker run -it $(docker build -q .)"
+
+start = "python -m api.main" 
+dev.ref = "start --db-path='forum.db' --db-wipe-on-start --seed"
 
 lint = "ruff . --fix"
 lint_ro = "ruff . --no-fix"
