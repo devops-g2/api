@@ -29,8 +29,6 @@ async def do_seed(server):
 async def start(seed, db_path, db_echo, db_wipe_on_start):
     app = FastAPI()
 
-    Endpointer.init_app(app)
-
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -39,12 +37,15 @@ async def start(seed, db_path, db_echo, db_wipe_on_start):
         allow_headers=["*"],
     )
 
+    Endpointer.init_app(app)
+
+
     db = Path(db_path)
     engine = create_engine(f"sqlite:///{db}", echo=db_echo)
     if db_wipe_on_start:
         db.unlink(missing_ok=True)
     Endpointer.init(engine, do_seed=False)
-    config = uvicorn.Config(app, port=8000)
+    config = uvicorn.Config(app, host="0.0.0.0", port=8000)
     server = uvicorn.Server(config)
     if seed:
         asyncio.create_task(do_seed(server))
