@@ -1,5 +1,7 @@
 FROM python:3.11-slim
 
+EXPOSE 8000
+
 # Set the working directory to /app
 WORKDIR /app
 
